@@ -19,8 +19,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'product_manager.db');
 
     // QUAN TRỌNG: Uncomment dòng dưới đây nêú bạn muốn xóa DB cũ để áp dụng thay đổi mới
-    await deleteDatabase(path);
-
+    //
     return await openDatabase(
       path,
       version: 1,
@@ -34,7 +33,7 @@ class DatabaseHelper {
       // Đường dẫn phải khớp chính xác với khai báo trong pubspec.yaml
       return await rootBundle.loadString('lib/database/script/$fileName');
     } catch (e) {
-      print('❌ Không tìm thấy file script: $fileName. Lỗi: $e');
+      //print('Không tìm thấy file script: $fileName. Lỗi: $e');
       return '';
     }
   }
@@ -57,17 +56,17 @@ class DatabaseHelper {
       try {
         await db.execute(statement);
       } catch (e) {
-        //print('🚨 Lỗi thực thi lệnh trong $fileName:');
-        //print('👉 Câu lệnh: $statement');
-        //print('👉 Chi tiết lỗi: $e');
+        //print('Lỗi thực thi lệnh trong $fileName:');
+        //print('Câu lệnh: $statement');
+        //print('Chi tiết lỗi: $e');
         rethrow; // Ném lỗi để dừng quá trình onCreate nếu có sai sót
       }
     }
-    print('✅ Đã chạy xong file: $fileName');
+    //print('Đã chạy xong file: $fileName');
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    //print('🔄 Đang bắt đầu quy trình tạo Database...');
+    //print('Đang bắt đầu quy trình tạo Database...');
     try {
       // Phải thực thi theo thứ tự: Bảng -> Index -> Trigger
       await _executeSQLFile(db, 'create_tables.sql');
@@ -77,15 +76,15 @@ class DatabaseHelper {
       // Chạy seed data nếu file không trống
       await _executeSQLFile(db, 'seed_data.sql');
 
-      //print('🚀 Database đã được khởi tạo thành công!');
+      //print('Database đã được khởi tạo thành công!');
     } catch (e) {
-      //print('💥 Lỗi nghiêm trọng khi khởi tạo Database: $e');
+      //print(' Lỗi khi khởi tạo Database: $e');
     }
   }
 
   Future<void> _onOpen(Database db) async {
     // Kích hoạt Foreign Keys để tính năng xóa CASCADE hoạt động
     await db.execute('PRAGMA foreign_keys = ON');
-    print('🔓 Kết nối Database mở - Foreign Keys đã bật');
+    //print(' Kết nối Database mở - Foreign Keys đã bật');
   }
 }

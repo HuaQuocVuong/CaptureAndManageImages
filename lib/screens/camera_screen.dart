@@ -539,8 +539,38 @@ class _CameraScreenState extends State<CameraScreen>
             ),
           ),
 
+          // Overlay đen phía trên
           // Grid Overlay lưới căn chỉnh
           Positioned.fill(child: CustomPaint(painter: GridPainter())),
+
+          // THÊM PHẦN NỀN ĐEN TRÊN VÀ DƯỚI ĐỂ TĂNG ĐỘ TƯƠNG PHẢN CHO GIAO DIỆN CHỤP ẢNH
+          // Nền đen phía trên
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height:
+                  MediaQuery.of(context).padding.top +
+                  60, // Điều chỉnh độ cao theo ý muốn
+              color: Colors.black.withOpacity(
+                1.0,
+              ), // Độ trong suốt có thể điều chỉnh
+            ),
+          ),
+
+          // Nền đen phía dưới
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 190, // Điều chỉnh độ cao theo ý muốn
+              color: Colors.black.withOpacity(
+                1.0,
+              ), // Độ trong suốt có thể điều chỉnh
+            ),
+          ),
 
           // TOP BAR
           Positioned(
@@ -570,14 +600,14 @@ class _CameraScreenState extends State<CameraScreen>
                     children: [
                       Icon(
                         _isBatchMode ? Icons.layers : Icons.photo_camera,
-                        color: Colors.white,
+                        color: Colors.pinkAccent,
                         size: 16,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         _isBatchMode ? 'Batch: ${_queue.length}' : 'Single',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: Colors.pinkAccent,
                           fontSize: 12,
                         ),
                       ),
@@ -588,7 +618,7 @@ class _CameraScreenState extends State<CameraScreen>
                 IconButton(
                   icon: Icon(
                     _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                    color: _isFlashOn ? Colors.yellow : Colors.white,
+                    color: _isFlashOn ? Colors.yellow : Colors.grey,
                   ),
                   onPressed: _toggleFlash,
                 ),
@@ -612,163 +642,172 @@ class _CameraScreenState extends State<CameraScreen>
               ),
             ),
 
-          // Bottom controls
+          // CÁC NÚT ĐIỀU KHIỂN
+          // NÚT GALLERY - Góc trái dưới
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              // Gradient làm mờ phần dưới
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+            bottom: 40,
+            left: 24,
+            child: GestureDetector(
+              onTap: _navigateToGallery,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.black38,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.white24, width: 2),
                 ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Hiển thị tên mode
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-
-                    // Gradient làm mờ phần dưới
-                    decoration: BoxDecoration(
-                      color: _isBatchMode ? Colors.orange : Colors.blue,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _isBatchMode
-                          ? "CHẾ ĐỘ CHỤP HÀNG LOẠT"
-                          : "CHẾ ĐỘ CHỤP ĐƠN",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  // Hàng nút điều khiển
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Gallery button
-                      GestureDetector(
-                        onTap: _navigateToGallery,
-                        child: Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.black38,
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: _queue.isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(23),
-                                  child: Image.file(
-                                    File(_queue.first.filePath),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.photo_library,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.photo_library,
-                                  color: Colors.white,
-                                ),
-                        ),
-                      ),
-
-                      // Capture button
-                      GestureDetector(
-                        onTap: _handleCapture,
-                        child: Container(
-                          height: 75,
-                          width: 75,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _isBatchMode ? Colors.orange : Colors.blue,
-                              width: 4,
-                            ),
-                          ),
-                          child: Container(
-                            margin: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                            ),
+                child: _queue.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(28),
+                        child: Image.file(
+                          File(_queue.first.filePath),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.photo_library,
+                            color: Colors.green,
+                            size: 30,
                           ),
                         ),
+                      )
+                    : const Icon(
+                        Icons.photo_library,
+                        color: Colors.green,
+                        size: 30,
                       ),
-
-                      // Mode switch button
-                      IconButton(
-                        icon: Icon(
-                          _isBatchMode ? Icons.layers_clear : Icons.layers,
-                          color: _isBatchMode ? Colors.orange : Colors.white,
-                          size: 30,
-                        ),
-                        onPressed: () {
-                          setState(() => _isBatchMode = !_isBatchMode);
-                          _showSnackBar(
-                            _isBatchMode
-                                ? 'Đã chuyển sang chế độ hàng loạt'
-                                : 'Đã chuyển sang chế độ đơn',
-                          );
-                        },
-                      ),
-
-                      // Bulk edit button
-                      IconButton(
-                        icon: const Icon(
-                          Icons.edit_note,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                        onPressed: (_isBatchMode && _queue.isNotEmpty)
-                            ? () {
-                                final readyPhotos = _queue
-                                    .where((p) => p.status == PhotoStatus.ready)
-                                    .toList();
-                                if (readyPhotos.isEmpty) {
-                                  _showSnackBar('Chưa có ảnh nào xử lý xong');
-                                } else {
-                                  _navigateToBulkEdit();
-                                }
-                              }
-                            : null,
-                      ),
-                    ],
-                  ),
-
-                  // Ready photos count
-                  if (_isBatchMode && _queue.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        '${_queue.where((p) => p.status == PhotoStatus.ready).length}/${_queue.length} ảnh sẵn sàng',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                ],
               ),
             ),
           ),
+
+          // NÚT CHỤP ẢNH - Chính giữa
+          Positioned(
+            bottom: 30,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: _handleCapture,
+                child: Container(
+                  height: 80,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _isBatchMode
+                          ? Colors.pinkAccent
+                          : Colors.blueAccent,
+                      width: 4,
+                    ),
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // NÚT MODE SWITCH - Bên phải, phía trên
+          Positioned(
+            bottom: 127,
+            right: 40,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  _isBatchMode ? Icons.layers_clear : Icons.layers,
+                  color: _isBatchMode ? Colors.purple : Colors.pinkAccent,
+                  size: 32,
+                ),
+                onPressed: () {
+                  setState(() => _isBatchMode = !_isBatchMode);
+                },
+              ),
+            ),
+          ),
+
+          // NÚT BULK EDIT - Bên phải, phía dưới (chỉ hiện khi batch mode)
+          if (_isBatchMode)
+            Positioned(
+              bottom: 40,
+              right: 40,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _queue.isNotEmpty ? Colors.black54 : Colors.black26,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.edit_note,
+                    color: Colors.deepOrange,
+                    size: 32,
+                  ),
+                  onPressed: (_queue.isNotEmpty)
+                      ? () {
+                          final readyPhotos = _queue
+                              .where((p) => p.status == PhotoStatus.ready)
+                              .toList();
+                          if (readyPhotos.isEmpty) {
+                            _showSnackBar('Chưa có ảnh nào xử lý xong');
+                          } else {
+                            _navigateToBulkEdit();
+                          }
+                        }
+                      : null,
+                ),
+              ),
+            ),
+
+          // MODE INDICATOR - Phía trên nút chụp
+          Positioned(
+            bottom: 140,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: _isBatchMode ? Colors.pinkAccent : Colors.blueAccent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _isBatchMode ? "BATCH MODE" : "SINGLE MODE",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // READY COUNT - Cạnh nút bulk edit
+          if (_isBatchMode && _queue.isNotEmpty)
+            Positioned(
+              bottom: 100,
+              right: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_queue.where((p) => p.status == PhotoStatus.ready).length}/${_queue.length}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 10),
+                ),
+              ),
+            ),
         ],
       ),
     );

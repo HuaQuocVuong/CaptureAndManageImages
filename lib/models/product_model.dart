@@ -1,12 +1,14 @@
 class Product {
-  int? id;
-  String name;
-  String category;
-  double? price;
-  String? note;
-  DateTime? createdAt;
-  DateTime? updatedAt;
+  //Thuộc tính của sản phẩm
+  int? id;  //ID
+  String name;  // Tên sản phẩm
+  String category;  // Danh mục
+  double? price;  // Giá tiền
+  String? note; // Ghi chú
+  DateTime? createdAt;  // Thời điểm tạo 
+  DateTime? updatedAt;  // Thời điểm cập nhật cuối
 
+  //Constructor dùng để khởi tạo đối tượng Product
   Product({
     this.id,
     required this.name,
@@ -18,16 +20,19 @@ class Product {
   });
 
   // Factory constructor từ Map
-  factory Product.fromMap(Map<String, dynamic> map) {
+  factory Product.fromMap(Map<String, dynamic> map) { // Chuyển DateTime thành String để lưu trữ vì DB thường không lưu trực tiếp kiểu Date
     return Product(
       id: map['id'],
       name: map['name'],
       category: map['category'],
+      // Ép kiểu về double đề phòng trường hợp dữ liệu trả về là int
       price: map['price']?.toDouble(),
       note: map['note'],
+      // Chuyển chuỗi String ISO8601 từ DB thành đối tượng DateTime trong Dart
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
           : null,
+      // Chuyển DateTime thành String để lưu trữ vì DB thường không lưu trực tiếp kiểu Date
       updatedAt: map['updated_at'] != null
           ? DateTime.parse(map['updated_at'])
           : null,
@@ -47,7 +52,7 @@ class Product {
     };
   }
 
-  // THÊM METHOD copyWith NÀY
+  
   Product copyWith({
     int? id,
     String? name,

@@ -25,7 +25,7 @@ Future<void> main() async {
   try {
     cameras = await availableCameras();
     //print('✅ Cameras found: ${cameras.length}');
-  } on CameraException catch (e) {
+  } on CameraException {
     //print('Camera Error: ${e.code}, ${e.description}');
   }
 

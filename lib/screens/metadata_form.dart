@@ -162,7 +162,7 @@ class _MetadataFormState extends State<MetadataForm> {
         await _photoDao.assignToProduct(
           widget.imagePath,
           productId,
-          newStatus: PhotoStatus.ready,
+          //newStatus: PhotoStatus.ready,
         );
       } else {
         // Nếu ảnh chưa có trong database, thêm mới
@@ -170,20 +170,20 @@ class _MetadataFormState extends State<MetadataForm> {
         await _photoDao.assignToProduct(
           widget.imagePath,
           productId,
-          newStatus: PhotoStatus.ready,
+          //newStatus: PhotoStatus.ready,
         );
       }
 
       if (!mounted) return;
 
       // Hiển thị thông báo thành công
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Đã lưu sản phẩm thành công'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      //ScaffoldMessenger.of(context).showSnackBar(
+      //  SnackBar(
+      //    content: Text('Lưu sản phẩm thành công'),
+      //    backgroundColor: Colors.green,
+      //    behavior: SnackBarBehavior.floating,
+      //  ),
+      //);
 
       // Quay lại màn hình trước
       Navigator.pop(context, true);
@@ -192,7 +192,7 @@ class _MetadataFormState extends State<MetadataForm> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Lỗi: $e'),
+          content: Text('Lỗi: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -285,7 +285,7 @@ class _MetadataFormState extends State<MetadataForm> {
                               top: 10,
                               right: 10,
                               child: CircleAvatar(
-                                backgroundColor: Colors.blue,
+                                backgroundColor: Colors.deepOrangeAccent,
                                 radius: 15,
                                 child: Icon(
                                   Icons.edit,
@@ -441,7 +441,7 @@ class _MetadataFormState extends State<MetadataForm> {
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _isEditMode
-                              ? Colors.orange
+                              ? Colors.lightGreen
                               : Colors.blue,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
