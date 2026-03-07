@@ -14,7 +14,7 @@ import 'package:module_s1/screens/bulk_edit_screen.dart';
 
 import 'package:module_s1/widgets/grid_painter.dart';
 
-import 'metadata_form.dart';
+import '../metadata/metadata_form.dart';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -32,7 +32,8 @@ class CameraScreen extends StatefulWidget {
 class _CameraScreenState extends State<CameraScreen>
     with WidgetsBindingObserver {
   CameraController? _controller; // Bộ điều khiển camera chính
-  bool _isBatchMode = false; // Chế độ chụp: false = Đơn, true = Hàng loạt
+  bool _isBatchMode =
+      false; //Chế độ chụp: false = Single Shot, true = Batch Short
   List<PhotoTask> _queue = []; // Hàng đợi hiển thị các ảnh đang xử lý
   bool _isFlashOn = false; // Trạng thái đèn Flash/Torch
   final PhotoDao _photoDao = PhotoDao(); // Data Access Object cho ảnh
@@ -49,11 +50,11 @@ class _CameraScreenState extends State<CameraScreen>
     // Đăng ký observer để theo dõi khi người dùng thoát app ra màn hình chính/quay lại
     WidgetsBinding.instance.addObserver(this);
     _initializeCamera(); // Khởi tạo phần cứng camera
-    _loadRecentPhotos(); // Lấy danh sách ảnh đã chụp từ DB
-    _loadRecentProducts(); // Lấy danh sách sản phẩm từ DB
+    _loadRecentPhotos(); // Lấy danh sách ảnh đã chụp từ database
+    _loadRecentProducts(); // Lấy danh sách sản phẩm từ database
   }
 
-  // Xử lý logic khi ứng dụng thay đổi trạng thái (ẩn/hiện)
+  // Xử lý logic khi ứng dụng thay đổi trạng thái (background/foreground)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_disposed) return;
@@ -69,7 +70,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  // Kiểm tra an toàn trước khi gọi các hàm của CameraController
+  // Kiểm tra xem controller camera có sẵn sàng sử dụng không
   bool _isControllerUsable() {
     return !_disposed &&
         _controller != null &&
@@ -77,13 +78,13 @@ class _CameraScreenState extends State<CameraScreen>
         mounted;
   }
 
-  // Giải phóng bộ nhớ camera một cách an toàn
+  // Giải phóng controller camera an toàn
   Future<void> _disposeController() async {
     if (_disposed) return;
     try {
       if (_controller != null) {
         final controller = _controller;
-        _controller = null; // Gán null ngay để các hàm khác không gọi vào nữa
+        _controller = null; // Ngăn không cho gọi controller nữa
         await controller?.dispose(); // Giải phóng tài nguyên camera
       }
     } catch (e) {
@@ -115,9 +116,8 @@ class _CameraScreenState extends State<CameraScreen>
       await _disposeController();
 
       _controller = CameraController(
-        widget.cameras[0], // Sử dụng camera mặc định (camera sau)
-        ResolutionPreset
-            .medium, // Độ phân giải trung bình (tiết kiệm pin/bộ nhớ)
+        widget.cameras[0], // Camera mặc định: Camera sau
+        ResolutionPreset.medium, // Độ phân giải trung bình
         enableAudio: false, // Không cần ghi âm khi chụp ảnh
       );
 
@@ -162,7 +162,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  // Load ảnh gần đây từ database
+  // Tải danh sách ảnh gần đây từ database để hiển thị trong queue
   Future<void> _loadRecentPhotos() async {
     if (!mounted || _disposed) return; // Ngăn chặn bấm nút liên tục
 
@@ -170,7 +170,7 @@ class _CameraScreenState extends State<CameraScreen>
       final photos = await _photoDao.getAllPhotos();
       if (!_disposed && mounted) {
         setState(() {
-          _queue = photos.take(10).toList(); // Lấy tối đa 10 ảnh
+          _queue = photos.take(10).toList(); // Lấy tối đa 10 mới nhất
         });
       }
     } catch (e) {
@@ -178,7 +178,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  // Load sản phẩm gần đây
+  // Tải danh sách sản phẩm gần đây từ database
   Future<void> _loadRecentProducts() async {
     if (!mounted || _disposed) return;
 
@@ -194,6 +194,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  // Hiển thị dialog lỗi với nút thử lại
   void _showErrorDialog(String title, String message) {
     if (!mounted || _disposed) return;
 
@@ -219,7 +220,7 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  // Chức năng chụp ảnh và xử lý lưu trữ
+  // Xử lý chụp ảnh: lưu file, cập nhật database, điều hướng theo chế độ
   Future<void> _handleCapture() async {
     // Camera chưa sẵn sàng
     if (!_isControllerUsable()) {
@@ -232,7 +233,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
     // Đang chụp ảnh trước đó
     if (_controller!.value.isTakingPicture) {
-      _showSnackBar('Đang xử lý ảnh trước đó...', isError: true);
+      //_showSnackBar('Đang xử lý ảnh trước đó...', isError: true);
       return;
     }
 
@@ -261,7 +262,7 @@ class _CameraScreenState extends State<CameraScreen>
       await File(photo.path).delete(); // Xóa file tạm
 
       if (_isBatchMode) {
-        // Chế độ hàng loạt → thêm vào queue
+        // Chế độ Batch-Short: thêm vào queue và xử lý background
         final id = await _photoDao.insert(savedFile.path);
         final newTask = PhotoTask(
           id: id.toString(),
@@ -274,9 +275,9 @@ class _CameraScreenState extends State<CameraScreen>
         }
 
         _processImageInBackground(newTask);
-        _showSnackBar('Đã chụp ảnh #${_queue.length}');
+        //_showSnackBar('Đã chụp ảnh #${_queue.length}');
       } else {
-        // Chế độ đơn → mở form metadata ngay
+        // Chế độ Singer-Short
         final id = await _photoDao.insert(savedFile.path);
         if (mounted) {
           _navigateToMetadata(savedFile.path, id);
@@ -293,9 +294,9 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  // Xử lý ảnh trong background: cập nhật trạng thái qua các bước (queued, processing, ready)
   Future<void> _processImageInBackground(PhotoTask task) async {
     if (!mounted || _disposed) return;
-
     try {
       // Cập nhật trạng thái queued
       if (mounted && !_disposed) {
@@ -313,7 +314,7 @@ class _CameraScreenState extends State<CameraScreen>
       }
       await _photoDao.updateStatus(task.filePath, PhotoStatus.queued);
       await Future.delayed(const Duration(milliseconds: 500));
-
+      // Chuyển sang processing
       if (mounted && !_disposed) {
         setState(() {
           final index = _queue.indexWhere((t) => t.id == task.id);
@@ -328,7 +329,7 @@ class _CameraScreenState extends State<CameraScreen>
       }
       await _photoDao.updateStatus(task.filePath, PhotoStatus.processing);
       await Future.delayed(const Duration(seconds: 2));
-
+      // Chuyển sang ready
       if (mounted && !_disposed) {
         setState(() {
           final index = _queue.indexWhere((t) => t.id == task.id);
@@ -343,6 +344,7 @@ class _CameraScreenState extends State<CameraScreen>
       }
       await _photoDao.updateStatus(task.filePath, PhotoStatus.ready);
     } catch (e) {
+      // Xảy ra lỗi chuyển sang failed
       if (mounted && !_disposed) {
         setState(() {
           final index = _queue.indexWhere((t) => t.id == task.id);
@@ -359,7 +361,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  // Điều hướng sang màn hình nhập metadata cho 1 ảnh
+  // Chuyển đến màn hình nhập metadata cho 1 ảnh
   void _navigateToMetadata(String imagePath, int photoId) {
     if (!mounted || _disposed) return;
 
@@ -370,7 +372,7 @@ class _CameraScreenState extends State<CameraScreen>
             MetadataForm(imagePath: imagePath, photoId: photoId),
       ),
     ).then((_) {
-      // Sau khi quay lại → reload dữ liệu
+      // Sau khi quay lại từ metadata, tải lại danh sách ảnh và sản phẩm
       if (!_disposed && mounted) {
         _loadRecentPhotos();
         _loadRecentProducts();
@@ -378,7 +380,7 @@ class _CameraScreenState extends State<CameraScreen>
     });
   }
 
-  // Điều hướng sang màn hình gallery
+  // Chuyển đến màn hình gallery
   void _navigateToGallery() {
     if (!mounted || _disposed) return;
     Navigator.push(
@@ -391,7 +393,7 @@ class _CameraScreenState extends State<CameraScreen>
     });
   }
 
-  // Điều hướng sang chỉnh sửa hàng loạt
+  // Chuyển đến màn hình chỉnh sửa hàng loạt (bulk edit) nếu có ảnh ready
   void _navigateToBulkEdit() {
     if (!mounted || _disposed) return;
     // Lọc ảnh đã xử lý xong
@@ -400,7 +402,7 @@ class _CameraScreenState extends State<CameraScreen>
         .toList();
 
     if (readyPhotos.isEmpty) {
-      _showSnackBar('Chưa có ảnh nào sẵn sàng để chỉnh sửa');
+      //_showSnackBar('Chưa có ảnh nào sẵn sàng để chỉnh sửa');
       return;
     }
 
@@ -428,12 +430,12 @@ class _CameraScreenState extends State<CameraScreen>
       // Torch = bật sáng liên tục
       _controller?.setFlashMode(_isFlashOn ? FlashMode.torch : FlashMode.off);
     } catch (e) {
-      print('Lỗi flash: $e');
-      _showSnackBar('Không thể bật/tắt flash', isError: true);
+      //print('Lỗi flash: $e');
+      //_showSnackBar('Không thể bật/tắt flash', isError: true);
     }
   }
 
-  // Hàm tiện ích để hiển thị thông báo nhanh (SnackBar) cho người dùng
+  // Hiển thị thông báo ngắn (SnackBar)
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted || _disposed) return;
 
@@ -451,15 +453,15 @@ class _CameraScreenState extends State<CameraScreen>
   @override
   void dispose() {
     _disposed = true;
-    WidgetsBinding.instance.removeObserver(this);
-    _disposeController();
+    WidgetsBinding.instance.removeObserver(this); // Hủy đăng ký observer
+    _disposeController(); // Giải phóng camera
     super.dispose();
   }
 
   //BUILD UI
   @override
   Widget build(BuildContext context) {
-    // Nếu có lỗi camera → hiển thị màn hình lỗi
+    // Hiển thị màn hình lỗi nếu có lỗi camera
     if (_cameraError != null) {
       return Scaffold(
         body: Center(
@@ -550,9 +552,7 @@ class _CameraScreenState extends State<CameraScreen>
             left: 0,
             right: 0,
             child: Container(
-              height:
-                  MediaQuery.of(context).padding.top +
-                  60, // Điều chỉnh độ cao theo ý muốn
+              height: MediaQuery.of(context).padding.top + 60, // Độ cao
               color: Colors.black.withOpacity(
                 1.0,
               ), // Độ trong suốt có thể điều chỉnh
@@ -755,7 +755,7 @@ class _CameraScreenState extends State<CameraScreen>
                               .where((p) => p.status == PhotoStatus.ready)
                               .toList();
                           if (readyPhotos.isEmpty) {
-                            _showSnackBar('Chưa có ảnh nào xử lý xong');
+                            //_showSnackBar('Chưa có ảnh nào xử lý xong');
                           } else {
                             _navigateToBulkEdit();
                           }
