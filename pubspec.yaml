@@ -16,6 +16,7 @@ dependencies:
   path: ^1.9.1
   flutter_svg: ^2.0.10
   audioplayers: ^6.1.0 
+  share_plus: ^7.2.1
 
 dev_dependencies:
   flutter_test:

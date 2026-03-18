@@ -4,6 +4,8 @@ import 'package:module_s1/models/photo_model.dart';
 import 'package:module_s1/metadata/metadata_form.dart';
 import 'dart:io';
 
+import 'package:share_plus/share_plus.dart';
+
 class PhotoGalleryScreen extends StatefulWidget {
   const PhotoGalleryScreen({super.key});
 
@@ -15,7 +17,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
   // Khởi tạo lớp truy cập dữ liệu (Data Access Object) cho Photo
   final PhotoDao _photoDao = PhotoDao();
 
-  // Danh sách chứa dữ liệu ảnh lấy từ DB
+  // Danh sách chứa dữ liệu ảnh lấy từ Database
   List<PhotoTask> _photos = [];
 
   // Biến trạng thái để hiển thị vòng xoay loading khi đang tải dữ liệu
@@ -49,6 +51,107 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
         ).showSnackBar(SnackBar(content: Text('Lỗi tải ảnh: $e')));
       }
     }
+  }
+
+  /// Hiển thị bottom sheet với các tùy chọn chia sẻ
+  Future<void> _showShareOptions(PhotoTask photo) async {
+    final file = File(photo.filePath);
+    if (!await file.exists()) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Không tìm thấy file ảnh')));
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              // Chia sẻ ảnh
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: const Text('Chia sẻ ảnh'),
+                onTap: () async {
+                  Navigator.pop(context); // đóng bottom sheet
+                  try {
+                    await Share.shareXFiles([
+                      XFile(photo.filePath),
+                    ]); //text: 'Chia sẻ ảnh từ ứng dụng');
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Lỗi chia sẻ ảnh: $e')),
+                    );
+                  }
+                },
+              ),
+              // Nếu ảnh có metadata, thêm tùy chọn chia sẻ metadata
+              if (photo.title != null ||
+                  photo.category != null ||
+                  photo.price != null)
+                ListTile(
+                  leading: const Icon(Icons.info),
+                  title: const Text('Chia sẻ metadata'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    // Tạo chuỗi metadata
+                    String metadataText = 'THÔNG TIN SẢN PHẨM\n';
+                    if (photo.title != null) {
+                      metadataText += 'Tên sản phẩm: ${photo.title}\n';
+                    }
+                    if (photo.category != null) {
+                      metadataText += 'Danh mục: ${photo.category}\n';
+                    }
+                    if (photo.price != null) {
+                      metadataText +=
+                          'Giá phẩm: ${_formatPrice(photo.price!)}đ\n';
+                    }
+                    try {
+                      await Share.share(metadataText, subject: 'Metadata ảnh');
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Lỗi chia sẻ metadata: $e')),
+                      );
+                    }
+                  },
+                ),
+              // 3Chia sẻ ảnh + metadata (nếu có metadata)
+              if (photo.title != null ||
+                  photo.category != null ||
+                  photo.price != null)
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('Chia sẻ ảnh + metadata'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    String metadataText = 'THÔNG TIN SẢN PHẨM\n';
+                    if (photo.title != null) {
+                      metadataText += 'Sản phẩm: ${photo.title}\n';
+                    }
+                    if (photo.category != null) {
+                      metadataText += 'Danh mục: ${photo.category}\n';
+                    }
+                    if (photo.price != null) {
+                      metadataText +=
+                          'Giá phẩm: ${_formatPrice(photo.price!)}đ\n';
+                    }
+                    try {
+                      await Share.shareXFiles([
+                        XFile(photo.filePath),
+                      ], text: metadataText);
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Lỗi chia sẻ: $e')),
+                      );
+                    }
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -112,6 +215,8 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                       (_) => _loadPhotos(),
                     ); // Sau khi quay lại từ MetadataForm, tự động load lại ảnh
                   },
+                  onLongPress: () =>
+                      _showShareOptions(photo), // <-- Thêm dòng này
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
