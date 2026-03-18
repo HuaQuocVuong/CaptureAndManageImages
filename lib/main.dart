@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'database/database_helper.dart'; // Đảm bảo đúng đường dẫn file của bạn
+import 'database/database_helper.dart';
 import 'screens/camera_screen.dart';
 
-// Biến toàn cục lưu danh sách camera
+// Biến toàn cục lưu danh sách camera ----------------
 List<CameraDescription> cameras = [];
 
 Future<void> main() async {
-  // 1. Đảm bảo các ràng buộc của Flutter đã được khởi tạo trước khi gọi code native
+  // Đảm bảo các ràng buộc của Flutter đã được khởi tạo trước khi gọi code native
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Khởi tạo Database
+  // Khởi tạo Database
   try {
     final dbHelper = DatabaseHelper();
     // Gọi getter database để kích hoạt _initDatabase -> _onCreate
@@ -21,7 +21,7 @@ Future<void> main() async {
     // Bạn có thể thông báo cho người dùng hoặc ghi log lỗi tại đây
   }
 
-  // 3. Khởi tạo Camera
+  //Khởi tạo Camera
   try {
     cameras = await availableCameras();
     //print(' Cameras found: ${cameras.length}');

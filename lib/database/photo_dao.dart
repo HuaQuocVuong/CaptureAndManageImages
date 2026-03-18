@@ -2,29 +2,32 @@ import 'package:module_s1/database/database_helper.dart';
 import 'package:module_s1/models/photo_model.dart';
 import 'package:sqflite/sqflite.dart';
 
+// Data Access Object (DAO) cho bảng photos
+// Tương tác với cơ sở dữ liệu cho các thao tác liên quan đến ảnh
 class PhotoDao {
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
-  // Lấy database instance
+  // Getter để lấy database instance từ DatabaseHelper
   Future<Database> get _database async => await _dbHelper.database;
 
-  // ==================== PHƯƠNG THỨC CƠ BẢN ====================
-
-  /// Thêm ảnh mới (khi chụp)
+  // PHƯƠNG THỨC CƠ BẢN
+  // Thêm một bản ghi ảnh mới vào database khi người dùng chụp ảnh
+  // Trả về ID của bản ghi vừa được chèn
   Future<int> insert(String imagePath) async {
     Database db = await _database;
-    final now = DateTime.now().toIso8601String();
+    final now = DateTime.now().toIso8601String(); // Timestamp hiện tại
 
     return await db.insert('photos', {
-      'image_path': imagePath,
-      'status': PhotoStatus.captured.name,
-      'product_id': null,
-      'created_at': now,
-      'updated_at': now,
+      'image_path': imagePath, // imagePath đường dẫn đến file ảnh trên thiết bị
+      'status': PhotoStatus.captured.name, // Trạng thái mặc định: vừa chụp
+      'product_id': null, // Chưa gán cho sản phẩm nào
+      'created_at': now, // Thời gian tạo
+      'updated_at': now, // Thời gian cập nhật
     });
   }
 
-  /// Thêm ảnh mới với đầy đủ metadata
+  // Thêm ảnh mới với đầy đủ thông tin metadata
+  // Cho phép chèn ảnh kèm thông tin sản phẩm ngay từ đầu
   Future<int> insertWithMetadata({
     required String imagePath,
     int? productId,
@@ -52,7 +55,8 @@ class PhotoDao {
       'updated_at': now,
     };
 
-    // Loại bỏ các trường null để tránh lỗi
+    // Loại bỏ các trường null để tránh lỗi khi insert vào database
+    // SQLite sẽ tự động gán NULL cho các trường không được cung cấp
     map.removeWhere((key, value) => value == null);
 
     final id = await db.insert('photos', map);
@@ -60,39 +64,43 @@ class PhotoDao {
     return id;
   }
 
-  /// Lấy ảnh theo ID
+  // Lấy ảnh theo ID
+  // Trả về đối tượng PhotoTask hoặc null nếu không tìm thấy
   Future<PhotoTask?> getPhotoById(String id) async {
     Database db = await _database;
     final List<Map<String, dynamic>> maps = await db.query(
       'photos',
       where: 'id = ?',
-      whereArgs: [int.tryParse(id)],
+      whereArgs: [int.tryParse(id)], // Chuyển String sang int
     );
 
     if (maps.isEmpty) return null;
     return _mapToPhotoTask(maps.first);
   }
 
-  /// Lấy ảnh theo đường dẫn
+  // Lấy thông tin ảnh dựa trên đường dẫn file
   Future<PhotoTask?> getPhotoByPath(String imagePath) async {
     Database db = await _database;
     final List<Map<String, dynamic>> maps = await db.query(
       'photos',
       where: 'image_path = ?',
       whereArgs: [imagePath],
+
+      /// imagePath đường dẫn tuyệt đối đến file ảnh
     );
 
     if (maps.isEmpty) return null;
     return _mapToPhotoTask(maps.first);
   }
 
-  /// Lấy tất cả ảnh
+  // Lấy tất cả ảnh từ database, sắp xếp theo thời gian tạo mới nhất
+  // Trả về danh sách các đối tượng PhotoTask
   Future<List<PhotoTask>> getAllPhotos() async {
     Database db = await _database;
     try {
       final List<Map<String, dynamic>> maps = await db.query(
         'photos',
-        orderBy: 'created_at DESC',
+        orderBy: 'created_at DESC', // Sắp xếp giảm dần theo thời gian tạo
       );
 
       return List.generate(maps.length, (i) {
@@ -100,11 +108,12 @@ class PhotoDao {
       });
     } catch (e) {
       //print('Lỗi getAllPhotos: $e');
-      return [];
+      return []; // Trả về danh sách rỗng nếu có lỗi
     }
   }
 
-  /// Lấy ảnh theo trạng thái
+  // Lọc ảnh theo trạng thái
+  /// status: trạng thái cần lọc (captured, processing, ready, failed)
   Future<List<PhotoTask>> getPhotosByStatus(PhotoStatus status) async {
     Database db = await _database;
     try {
@@ -119,12 +128,13 @@ class PhotoDao {
         return _mapToPhotoTask(maps[i]);
       });
     } catch (e) {
-      print('Lỗi getPhotosByStatus: $e');
+      //print('Lỗi getPhotosByStatus: $e');
       return [];
     }
   }
 
-  /// Lấy ảnh theo sản phẩm
+  // Lấy danh sách ảnh thuộc về một sản phẩm cụ thể
+  // productId: ID của sản phẩm
   Future<List<PhotoTask>> getPhotosByProduct(int productId) async {
     Database db = await _database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -136,33 +146,39 @@ class PhotoDao {
     return maps.map(_mapToPhotoTask).toList();
   }
 
-  /// Lấy ảnh chưa xử lý
+  // Lấy các ảnh đang chờ xử lý (không phải ready hoặc failed)
+  // Thường dùng để hiển thị các tác vụ cần xử lý trong queue
   Future<List<PhotoTask>> getPendingTasks() async {
     Database db = await _database;
     final List<Map<String, dynamic>> maps = await db.query(
       'photos',
-      where: 'status NOT IN (?, ?)',
+      where: 'status NOT IN (?, ?)', // Loại trừ ready và failed
       whereArgs: [PhotoStatus.ready.name, PhotoStatus.failed.name],
       orderBy: 'created_at DESC',
     );
     return maps.map(_mapToPhotoTask).toList();
   }
 
-  /// Tìm kiếm ảnh theo tiêu đề hoặc mô tả
+  // Tìm kiếm ảnh dựa trên tiêu đề, mô tả hoặc ghi chú
+  // query từ khóa tìm kiếm (không phân biệt hoa thường)
   Future<List<PhotoTask>> searchPhotos(String query) async {
     Database db = await _database;
     final List<Map<String, dynamic>> maps = await db.query(
       'photos',
       where: 'title LIKE ? OR description LIKE ? OR note LIKE ?',
-      whereArgs: ['%$query%', '%$query%', '%$query%'],
+      whereArgs: [
+        '%$query%',
+        '%$query%',
+        '%$query%',
+      ], // cho phép tìm kiếm chứa từ khóa
       orderBy: 'created_at DESC',
     );
     return maps.map(_mapToPhotoTask).toList();
   }
 
-  // ==================== PHƯƠNG THỨC CẬP NHẬT ====================
-
-  /// Cập nhật metadata của ảnh (phương thức quan trọng nhất)
+  // PHƯƠNG THỨC CẬP NHẬT
+  // Cập nhật metadata của ảnh (phương thức quan trọng nhất)
+  // Đây là phương thức quan trọng nhất cho việc cập nhật thông tin ảnh
   Future<void> updatePhotoMetadata(
     int photoId, {
     int? productId,
@@ -177,6 +193,7 @@ class PhotoDao {
 
     final Map<String, dynamic> updates = {};
 
+    // Chỉ thêm vào map nếu tham số không null
     if (productId != null) updates['product_id'] = productId;
     if (title != null) updates['title'] = title;
     if (description != null) updates['description'] = description;
@@ -185,7 +202,7 @@ class PhotoDao {
     if (note != null) updates['note'] = note;
     if (status != null) updates['status'] = status.name;
 
-    // Luôn cập nhật thời gian sửa đổi
+    // Luôn cập nhật thời gian sửa đổi để biết lần cuối thay đổi
     updates['updated_at'] = DateTime.now().toIso8601String();
 
     if (updates.isNotEmpty) {
@@ -194,7 +211,7 @@ class PhotoDao {
     }
   }
 
-  /// Cập nhật toàn bộ thông tin ảnh
+  // Cập nhật toàn bộ thông tin của một đối tượng PhotoTask
   Future<void> updatePhoto(PhotoTask photo) async {
     Database db = await _database;
     await db.update(
@@ -215,7 +232,7 @@ class PhotoDao {
     );
   }
 
-  /// Cập nhật trạng thái theo đường dẫn
+  // Cập nhật trạng thái của ảnh dựa trên ID
   Future<void> updateStatus(String imagePath, PhotoStatus status) async {
     Database db = await _database;
     await db.update(
@@ -226,7 +243,7 @@ class PhotoDao {
     );
   }
 
-  /// Cập nhật trạng thái theo ID
+  // Cập nhật trạng thái theo ID
   Future<void> updatePhotoStatus(int photoId, PhotoStatus status) async {
     Database db = await _database;
     await db.update(
@@ -237,13 +254,13 @@ class PhotoDao {
     );
   }
 
-  // ==================== PHƯƠNG THỨC GÁN CHO SẢN PHẨM ====================
-
-  /// Gán ảnh cho sản phẩm (theo đường dẫn)
+  // PHƯƠNG THỨC GÁN CHO SẢN PHẨM
+  // Gán ảnh cho sản phẩm (theo đường dẫn)
   Future<void> assignToProduct(
-    String imagePath,
-    int productId, {
-    PhotoStatus newStatus = PhotoStatus.ready,
+    String imagePath, // imagePath đường dẫn file ảnh
+    int productId, { // ID sản phẩm
+    PhotoStatus newStatus =
+        PhotoStatus.ready, // Trạng thái mới sau khi gán (mặc định là ready)
   }) async {
     Database db = await _database;
     await db.update(
@@ -258,11 +275,12 @@ class PhotoDao {
     );
   }
 
-  /// Gán ảnh cho sản phẩm (theo ID)
+  /// Gán ảnh cho sản phẩm dựa trên ID
   Future<void> assignToProductById(
-    int photoId,
-    int productId, {
-    PhotoStatus newStatus = PhotoStatus.ready,
+    int photoId, // [photoId] ID của ảnh
+    int productId, { // [productId] ID sản phẩm
+    PhotoStatus newStatus =
+        PhotoStatus.ready, // newStatus trạng thái mới sau khi gán
   }) async {
     Database db = await _database;
     await db.update(
@@ -277,34 +295,33 @@ class PhotoDao {
     );
   }
 
-  // ==================== PHƯƠNG THỨC XÓA ====================
-
-  /// Xóa ảnh
+  // PHƯƠNG THỨC XÓA
+  // Xóa một ảnh khỏi database dựa trên ID
   Future<void> deletePhoto(int id) async {
     Database db = await _database;
     await db.delete('photos', where: 'id = ?', whereArgs: [id]);
     //print('Đã xóa ảnh ID: $id');
   }
 
-  /// Xóa ảnh theo đường dẫn
+  // Xóa một ảnh khỏi database dựa trên đường dẫn file
   Future<void> deletePhotoByPath(String imagePath) async {
     Database db = await _database;
     await db.delete('photos', where: 'image_path = ?', whereArgs: [imagePath]);
     //print('Đã xóa ảnh: $imagePath');
   }
 
-  // ==================== PHƯƠNG THỨC THỐNG KÊ ====================
-
-  /// Đếm số ảnh
+  // PHƯƠNG THỨC THỐNG KÊ
+  // Đếm số ảnh trong database, trả về số lượng ảnh
   Future<int> countPhotos() async {
     Database db = await _database;
     return Sqflite.firstIntValue(
           await db.rawQuery('SELECT COUNT(*) FROM photos'),
         ) ??
-        0;
+        0; // Trả về 0 nếu kết quả null
   }
 
-  /// Đếm số ảnh theo trạng thái
+  // Đếm số ảnh theo trạng thái cụ thể
+  // Trả về số lượng ảnh với trạng thái đó
   Future<int> countPhotosByStatus(PhotoStatus status) async {
     Database db = await _database;
     final result = await db.rawQuery(
@@ -314,7 +331,8 @@ class PhotoDao {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  /// Lấy metadata của ảnh
+  // Lấy metadata của ảnh (không bao gồm đường dẫn file)
+  // Trả về Map chứa các trường metadata hoặc null nếu không tìm thấy
   Future<Map<String, dynamic>?> getPhotoMetadata(int photoId) async {
     Database db = await _database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -328,21 +346,23 @@ class PhotoDao {
     return maps.first;
   }
 
-  // ==================== HELPER METHOD ====================
-
-  /// Helper method để chuyển đổi Map thành PhotoTask
+  // HELPER METHOD
+  // Phương thức chuyển đổi Map từ database thành đối tượng PhotoTask
+  // Trả về đối tượng PhotoTask tương ứng
   PhotoTask _mapToPhotoTask(Map<String, dynamic> map) {
     return PhotoTask(
-      id: map['id'].toString(),
-      filePath: map['image_path'] ?? '',
+      id: map['id'].toString(), // Chuyển int ID sang String
+      filePath:
+          map['image_path'] ?? '', // Đường dẫn file, mặc định rỗng nếu null
       status: PhotoStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => PhotoStatus.captured,
+        (e) => e.name == map['status'], // Tìm enum tương ứng với tên trạng thái
+        orElse: () =>
+            PhotoStatus.captured, // Mặc định là captured nếu không tìm thấy
       ),
       productId: map['product_id'] as int?,
       title: map['title'] as String?,
       description: map['description'] as String?,
-      price: (map['price'] as num?)?.toDouble(),
+      price: (map['price'] as num?)?.toDouble(), // Chuyển từ num sang double
       category: map['category'] as String?,
       note: map['note'] as String?,
     );
