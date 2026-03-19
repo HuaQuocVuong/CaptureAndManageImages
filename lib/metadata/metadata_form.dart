@@ -4,9 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 import 'package:module_s1/database/photo_dao.dart';
-import 'package:module_s1/models/photo_model.dart';
 import 'package:module_s1/database/product_dao.dart';
+
 import 'package:module_s1/models/product_model.dart';
+import 'package:module_s1/models/photo_model.dart';
+
 import 'package:module_s1/metadata/thousands_separator_input_fomatter.dart';
 
 // Màn hình form nhập thông tin metadata cho ảnh vừa chụp.
@@ -30,8 +32,8 @@ class _MetadataFormState extends State<MetadataForm> {
 
   String? _selectedCategory; // Danh mục được chọn
   final List<String> _categories = const [
-    'Đồ điện tử',
     'Thời trang',
+    'Đồ công nghệ',
     'Đồ gia dụng',
     'Sách',
     'Khác',
@@ -101,7 +103,6 @@ class _MetadataFormState extends State<MetadataForm> {
   /// Load sản phẩm từ ID
   Future<void> _loadProductFromId(int productId) async {
     try {
-      // Giả sử ProductDao có phương thức getProduct(id)
       final product = await _productDao.getById(productId);
       if (product != null && mounted) {
         setState(() {
@@ -314,32 +315,40 @@ class _MetadataFormState extends State<MetadataForm> {
             ? const Center(child: CircularProgressIndicator())
             : Stack(
                 children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Form(
-                      key: _formKey,
-                      autovalidateMode: AutovalidateMode.onUserInteraction,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildImagePreview(),
-                          const SizedBox(height: 20),
-                          if (_recentProducts.isNotEmpty && !_isEditMode)
-                            _buildRecentProductsSection(),
-                          _buildNameField(),
-                          const SizedBox(height: 15),
-                          _buildCategoryDropdown(),
-                          const SizedBox(height: 15),
-                          _buildPriceField(),
-                          const SizedBox(height: 5),
-                          if (!_useExistingProduct || _isEditMode)
-                            _buildPriceSuggestions(),
-                          const SizedBox(height: 15),
-                          _buildNoteField(),
-                          const SizedBox(height: 30),
-                          _buildActionButtons(),
-                          if (!_isEditMode) _buildRetakeButton(),
-                        ],
+                  Scrollbar(
+                    thumbVisibility: true,
+                    radius: const Radius.circular(10),
+                    thickness: 8,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Form(
+                        key: _formKey,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildImagePreview(),
+                            const SizedBox(height: 20),
+                            if (_recentProducts.isNotEmpty && !_isEditMode)
+                              _buildRecentProductsSection(),
+                            _buildNameField(),
+                            const SizedBox(height: 15),
+                            _buildCategoryDropdown(),
+                            const SizedBox(height: 15),
+                            _buildPriceField(),
+                            const SizedBox(height: 5),
+                            if (!_useExistingProduct || _isEditMode)
+                              _buildPriceSuggestions(),
+                            const SizedBox(height: 15),
+                            _buildNoteField(),
+                            const SizedBox(height: 5),
+                            if (!_useExistingProduct || _isEditMode)
+                              _buildNoteSuggestions(),
+                            const SizedBox(height: 30),
+                            _buildActionButtons(),
+                            if (!_isEditMode) _buildRetakeButton(),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -350,7 +359,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
-  // ===== CÁC WIDGET CON (giữ nguyên như code cũ) =====
+  // CÁC WIDGET CON
   Widget _buildImagePreview() {
     return Center(
       child: Container(
@@ -448,7 +457,7 @@ class _MetadataFormState extends State<MetadataForm> {
 
   Widget _buildCategoryDropdown() {
     return DropdownButtonFormField<String>(
-      initialValue: _selectedCategory,
+      value: _selectedCategory,
       decoration: InputDecoration(
         labelText: 'Danh mục',
         border: const OutlineInputBorder(),
@@ -507,16 +516,31 @@ class _MetadataFormState extends State<MetadataForm> {
   }
 
   Widget _buildPriceSuggestions() {
+    final isEnabled = !_useExistingProduct || _isEditMode;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: const [
-        _SuggestionChip(label: '19.999', value: 19000),
-        _SuggestionChip(label: '49.999', value: 49999),
-        _SuggestionChip(label: '99.999', value: 99999),
-        _SuggestionChip(label: '199.999', value: 199999),
-        _SuggestionChip(label: '999.999', value: 999999),
+      children: [
+        _SuggestionChip(label: '19.999', value: 19000, enabled: isEnabled),
+        _SuggestionChip(label: '49.999', value: 49999, enabled: isEnabled),
+        _SuggestionChip(label: '99.999', value: 99999, enabled: isEnabled),
+        _SuggestionChip(label: '199.999', value: 199999, enabled: isEnabled),
+        _SuggestionChip(label: '999.999', value: 999999, enabled: isEnabled),
       ],
+    );
+  }
+
+  Widget _buildNoteSuggestions() {
+    final isEnabled = !_useExistingProduct || _isEditMode;
+    final suggestions = ['Còn hàng', 'Hết hàng', 'Sắp về hàng', 'Hàng mới về'];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: suggestions.map((text) {
+        return _NoteSuggestionChip(label: text, enabled: isEnabled);
+      }).toList(),
     );
   }
 
@@ -622,18 +646,21 @@ class _MetadataFormState extends State<MetadataForm> {
   }
 }
 
-// Widget chip gợi ý giá
+// Widget chip gợi ý giá (trong cùng file)
 class _SuggestionChip extends StatelessWidget {
   final String label;
   final int value;
+  final bool enabled;
 
-  const _SuggestionChip({required this.label, required this.value});
+  const _SuggestionChip({
+    required this.label,
+    required this.value,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     final state = context.findAncestorStateOfType<_MetadataFormState>();
-    final isEnabled =
-        !(state?._useExistingProduct ?? false) || (state?._isEditMode ?? false);
 
     return ActionChip(
       label: Text(
@@ -644,14 +671,47 @@ class _SuggestionChip extends StatelessWidget {
         ),
       ),
       backgroundColor: const Color.fromARGB(255, 213, 234, 253),
-      onPressed: isEnabled
+      onPressed: enabled
           ? () {
               if (state != null) {
-                // ignore: invalid_use_of_protected_member
                 state.setState(() {
                   state._priceController.text = state._formatWithSeparator(
                     value.toString(),
                   );
+                });
+              }
+            }
+          : null,
+      elevation: 0,
+    );
+  }
+}
+
+// Widget chip gợi ý ghi chú
+class _NoteSuggestionChip extends StatelessWidget {
+  final String label;
+  final bool enabled;
+
+  const _NoteSuggestionChip({required this.label, this.enabled = true});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.findAncestorStateOfType<_MetadataFormState>();
+
+    return ActionChip(
+      label: Text(
+        label,
+        style: const TextStyle(
+          color: Color.fromARGB(255, 150, 150, 150),
+          fontSize: 13,
+        ),
+      ),
+      backgroundColor: const Color.fromARGB(255, 213, 234, 253),
+      onPressed: enabled
+          ? () {
+              if (state != null) {
+                state.setState(() {
+                  state._noteController.text = label;
                 });
               }
             }

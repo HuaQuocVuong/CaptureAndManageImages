@@ -98,7 +98,7 @@ class _CameraScreenState extends State<CameraScreen>
         debugPrint('Không tìm thấy ảnh ID $photoId');
       }
     } catch (e) {
-      debugPrint('Lỗi kiểm tra ảnh: $e');
+      //debugPrint('Lỗi kiểm tra ảnh: $e');
     }
   }
 
