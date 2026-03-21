@@ -45,9 +45,9 @@ class _MetadataFormState extends State<MetadataForm> {
 
   bool _isLoading = false; // Đang xử lý lưu?
   bool _isEditMode = false; // Chế độ chỉnh sửa (có photoId)
-  Product? _existingProduct;
-  List<Product> _recentProducts = [];
-  bool _useExistingProduct = false;
+  Product? _existingProduct; // Sản phẩm hiện tại nếu ảnh đã được gán
+  List<Product> _recentProducts = []; // Danh sách sản phẩm gần đây để gợi ý
+  bool _useExistingProduct = false; // Đang sử dụng sản phẩm có sẵn?
 
   // Biến loading ban đầu (khi fetch dữ liệu cũ)
   bool _isInitialLoading = false;
@@ -55,7 +55,7 @@ class _MetadataFormState extends State<MetadataForm> {
   @override
   void initState() {
     super.initState();
-    _loadRecentProducts();
+    _loadRecentProducts(); // Tải sản phẩm gần đây
     _loadExistingData(); // Load dữ liệu nếu có photoId
   }
 
@@ -100,7 +100,7 @@ class _MetadataFormState extends State<MetadataForm> {
     }
   }
 
-  /// Load sản phẩm từ ID
+  // Load sản phẩm từ ID (khi ảnh đã có productId)
   Future<void> _loadProductFromId(int productId) async {
     try {
       final product = await _productDao.getById(productId);
@@ -140,7 +140,7 @@ class _MetadataFormState extends State<MetadataForm> {
     return buffer.toString();
   }
 
-  // Định dạng giá hiển thị
+  // Định dạng giá hiển thị (xử lý số thập phân)
   String _formatPriceForDisplay(double? price) {
     if (price == null) return '';
     final intPart = price.toInt();
@@ -153,7 +153,7 @@ class _MetadataFormState extends State<MetadataForm> {
     }
   }
 
-  // Load thông tin sản phẩm được chọn từ chip
+  // Load thông tin sản phẩm được chọn từ chip (gợi ý) và điền vào form
   Future<void> _loadProductDetails(Product product) async {
     setState(() {
       _existingProduct = product;
@@ -165,7 +165,7 @@ class _MetadataFormState extends State<MetadataForm> {
     });
   }
 
-  // Xóa form
+  // Xóa toàn bộ form và đặt lại trạng thái (không dùng sản phẩm có sẵn)
   void _clearForm() {
     setState(() {
       _useExistingProduct = false;
@@ -177,7 +177,7 @@ class _MetadataFormState extends State<MetadataForm> {
     });
   }
 
-  // Validator giá
+  // Validator cho trường giá (kiểm tra số hợp lệ, không âm, không quá lớn)
   String? _validatePrice(String? value) {
     if (value == null || value.isEmpty) return null;
     final numberString = value.replaceAll('.', '');
@@ -188,7 +188,7 @@ class _MetadataFormState extends State<MetadataForm> {
     return null;
   }
 
-  // Lưu metadata
+  // Lưu metadata: tạo hoặc cập nhật sản phẩm, sau đó lưu thông tin vào bảng photos
   Future<void> _saveMetadata() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -199,8 +199,8 @@ class _MetadataFormState extends State<MetadataForm> {
       final priceValue = rawPrice.isEmpty ? null : double.tryParse(rawPrice);
 
       if (_useExistingProduct && _existingProduct != null) {
+        // Trường hợp sử dụng sản phẩm có sẵn -> cập nhật sản phẩm (nếu có thay đổi)
         productId = _existingProduct!.id!;
-        // Cập nhật sản phẩm nếu có thay đổi
         final updatedProduct = _existingProduct!.copyWith(
           name: _nameController.text.isNotEmpty
               ? _nameController.text
@@ -223,7 +223,7 @@ class _MetadataFormState extends State<MetadataForm> {
         productId = await _productDao.insert(product);
       }
 
-      // Lưu metadata vào bảng photos
+      // Lưu metadata vào bảng photos (cập nhật nếu đã tồn tại, insert nếu mới)
       if (widget.photoId != null) {
         await _photoDao.updatePhotoMetadata(
           widget.photoId!,
@@ -259,7 +259,7 @@ class _MetadataFormState extends State<MetadataForm> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context, true);
+      Navigator.pop(context, true); // Trả về true để báo thành công
     } catch (e) {
       debugPrint('Lỗi lưu: $e');
       if (!mounted) return;
@@ -275,6 +275,7 @@ class _MetadataFormState extends State<MetadataForm> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
+        // Xử lý khi người dùng nhấn nút back: hiển thị xác nhận hủy nếu đang không lưu
         if (_isLoading) return false;
         final shouldPop = await showDialog<bool>(
           context: context,
@@ -359,7 +360,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
-  // CÁC WIDGET CON
+  // Widget hiển thị ảnh xem trước
   Widget _buildImagePreview() {
     return Center(
       child: Container(
@@ -388,6 +389,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Widget hiển thị danh sách sản phẩm gần đây dưới dạng chip chọn nhanh
   Widget _buildRecentProductsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,6 +430,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Widget nhập tên sản phẩm
   Widget _buildNameField() {
     return TextFormField(
       controller: _nameController,
@@ -455,9 +458,10 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Widget dropdown chọn danh mục
   Widget _buildCategoryDropdown() {
     return DropdownButtonFormField<String>(
-      value: _selectedCategory,
+      initialValue: _selectedCategory,
       decoration: InputDecoration(
         labelText: 'Danh mục',
         border: const OutlineInputBorder(),
@@ -487,6 +491,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Widget nhập giá (có format tự động và validator)
   Widget _buildPriceField() {
     return TextFormField(
       controller: _priceController,
@@ -515,6 +520,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Widget hiển thị các chip gợi ý giá nhanh
   Widget _buildPriceSuggestions() {
     final isEnabled = !_useExistingProduct || _isEditMode;
 
@@ -531,6 +537,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Widget hiển thị các chip gợi ý ghi chú nhanh
   Widget _buildNoteSuggestions() {
     final isEnabled = !_useExistingProduct || _isEditMode;
     final suggestions = ['Còn hàng', 'Hết hàng', 'Sắp về hàng', 'Hàng mới về'];
@@ -544,6 +551,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Widget nhập ghi chú (multi-line)
   Widget _buildNoteField() {
     return TextFormField(
       controller: _noteController,
@@ -570,6 +578,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Nút hành động chính (Lưu / Cập nhật)
   Widget _buildActionButtons() {
     return SizedBox(
       width: double.infinity,
@@ -601,6 +610,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Nút chụp ảnh khác (chỉ hiện khi không ở chế độ chỉnh sửa)
   Widget _buildRetakeButton() {
     return Padding(
       padding: const EdgeInsets.only(top: 10),
@@ -616,6 +626,7 @@ class _MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  // Lớp phủ hiển thị khi đang lưu dữ liệu
   Widget _buildLoadingOverlay() {
     return Container(
       color: Colors.black54,
@@ -647,6 +658,7 @@ class _MetadataFormState extends State<MetadataForm> {
 }
 
 // Widget chip gợi ý giá (trong cùng file)
+// Khi nhấn vào sẽ điền giá tương ứng vào ô nhập liệu
 class _SuggestionChip extends StatelessWidget {
   final String label;
   final int value;
@@ -688,6 +700,7 @@ class _SuggestionChip extends StatelessWidget {
 }
 
 // Widget chip gợi ý ghi chú
+// Khi nhấn vào sẽ điền nội dung ghi chú tương ứng
 class _NoteSuggestionChip extends StatelessWidget {
   final String label;
   final bool enabled;
