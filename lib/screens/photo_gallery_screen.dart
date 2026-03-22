@@ -3,7 +3,6 @@ import 'package:module_s1/database/photo_dao.dart';
 import 'package:module_s1/models/photo_model.dart';
 import 'package:module_s1/metadata/metadata_form.dart';
 import 'dart:io';
-
 import 'package:share_plus/share_plus.dart';
 
 class PhotoGalleryScreen extends StatefulWidget {

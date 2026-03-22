@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:module_s1/models/photo_model.dart';
 import 'dart:io';
 
+// Thanh công cụ phía trên màn hình camera
+// Hiển thị nút quay lại, làm mới, chế độ chụp (batch/single) và bật/tắt flash
 class CameraTopBar extends StatelessWidget {
-  final VoidCallback onBack;
-  final VoidCallback onRefresh;
-  final bool isBatchMode;
-  final int queueLength;
-  final VoidCallback onToggleFlash;
-  final bool isFlashOn;
+  final VoidCallback onBack; // Xử lý khi nhấn nút quay lại
+  final VoidCallback onRefresh; // Xử lý khi nhấn nút làm mới dữ liệu
+  final bool isBatchMode; // true: chế độ chụp hàng loạt, false: chụp đơn
+  final int
+  queueLength; // Số lượng ảnh trong hàng đợi (chỉ hiển thị ở batch mode)
+
+  final VoidCallback onToggleFlash; // Xử lý bật/tắt đèn flash
+  final bool isFlashOn; // Trạng thái đèn flash hiện tại
 
   const CameraTopBar({
     super.key,
@@ -33,6 +37,7 @@ class CameraTopBar extends StatelessWidget {
           icon: const Icon(Icons.refresh, color: Colors.white),
           onPressed: onRefresh,
         ),
+        // Hiển thị thông tin chế độ chụp
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -66,14 +71,17 @@ class CameraTopBar extends StatelessWidget {
   }
 }
 
+// Widget hiển thị thumbnail của một ảnh trong hàng đợi.
+// Dùng trong chế độ batch, hiển thị trạng thái xử lý và cho phép nhấn để nhập metadata.
 class QueueThumbnail extends StatelessWidget {
-  final PhotoTask task;
-  final VoidCallback onTap;
+  final PhotoTask task; // Đối tượng ảnh (chứa đường dẫn và trạng thái)
+  final VoidCallback onTap; // Hành động khi nhấn vào thumbnail
 
   const QueueThumbnail({super.key, required this.task, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    // Xác định màu sắc và icon dựa trên trạng thái ảnh
     Color statusColor;
     IconData statusIcon;
 
@@ -114,6 +122,7 @@ class QueueThumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Hiển thị ảnh nếu file tồn tại, nếu không thì hiển thị icon trạng thái
             FutureBuilder<bool>(
               future: File(task.filePath).exists(),
               builder: (context, snapshot) {
@@ -134,6 +143,7 @@ class QueueThumbnail extends StatelessWidget {
                 return Center(child: Icon(statusIcon, color: statusColor));
               },
             ),
+            // Lớp phủ hiển thị trạng thái nếu chưa sẵn sàng (processing, queued,...)
             if (task.status != PhotoStatus.ready)
               Container(
                 decoration: BoxDecoration(
@@ -171,17 +181,23 @@ class QueueThumbnail extends StatelessWidget {
       ),
     );
   }
-}
+} // Các nút điều khiển chính ở phía dưới màn hình camera:
 
+// - Nút thư viện (gallery)
+// - Nút chụp ảnh
+// - Nút chuyển đổi chế độ batch/single
+// - Nút chỉnh sửa hàng loạt (bulk edit) – chỉ hiển thị khi ở chế độ batch
+// - Hiển thị trạng thái chế độ và số lượng ảnh sẵn sàng
 class CameraControlButtons extends StatelessWidget {
-  final VoidCallback onGallery;
-  final VoidCallback onCapture;
-  final VoidCallback onToggleMode;
-  final bool isBatchMode;
-  final bool hasQueue;
-  final VoidCallback? onBulkEdit;
-  final int readyCount;
-  final int totalCount;
+  final VoidCallback onGallery; // Mở thư viện ảnh
+  final VoidCallback onCapture; // Chụp ảnh
+  final VoidCallback onToggleMode; // Chuyển đổi chế độ batch/single
+  final bool isBatchMode; // Đang ở chế độ batch
+  final bool hasQueue; // Có ảnh trong hàng đợi không
+  final VoidCallback?
+  onBulkEdit; // Mở màn hình chỉnh sửa hàng loạt (chỉ khi có ảnh)
+  final int readyCount; // Số ảnh đã sẵn sàng để chỉnh sửa
+  final int totalCount; // Tổng số ảnh trong hàng đợi
 
   const CameraControlButtons({
     super.key,
@@ -199,7 +215,7 @@ class CameraControlButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Gallery button
+        // Gallery button: Nút thư viện (góc trái)
         Positioned(
           bottom: 40,
           left: 24,
@@ -224,7 +240,7 @@ class CameraControlButtons extends StatelessWidget {
             ),
           ),
         ),
-        // Capture button
+        // Capture button: Nút chụp ảnh (trung tâm)
         Positioned(
           bottom: 30,
           left: 0,
@@ -253,7 +269,7 @@ class CameraControlButtons extends StatelessWidget {
             ),
           ),
         ),
-        // Mode switch button
+        // Mode switch button: Nút chuyển đổi chế độ batch/single (phải, phía trên nút chụp)
         Positioned(
           bottom: 127,
           right: 40,
@@ -272,7 +288,7 @@ class CameraControlButtons extends StatelessWidget {
             ),
           ),
         ),
-        // Bulk edit button
+        // Bulk edit button: Nút chỉnh sửa hàng loạt (chỉ hiển thị khi ở chế độ batch)
         if (isBatchMode)
           Positioned(
             bottom: 40,
@@ -292,7 +308,7 @@ class CameraControlButtons extends StatelessWidget {
               ),
             ),
           ),
-        // Mode indicator
+        // Mode indicator: Nhãn hiển thị chế độ hiện tại (Batch Mode / Single Mode)
         Positioned(
           bottom: 140,
           left: 0,
@@ -315,7 +331,7 @@ class CameraControlButtons extends StatelessWidget {
             ),
           ),
         ),
-        // Ready count
+        // Ready coun: // Hiển thị số lượng ảnh đã sẵn sàng (chỉ ở chế độ batch và có hàng đợi)
         if (isBatchMode && hasQueue)
           Positioned(
             bottom: 100,
