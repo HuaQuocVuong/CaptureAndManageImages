@@ -33,7 +33,6 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
 
-  # Khai báo assets phải lùi vào 4 khoảng trống (2 tab) so với lề trái
   assets:
     - lib/database/script/create_tables.sql
     - lib/database/script/create_indexes.sql
@@ -41,7 +40,4 @@ flutter:
     - lib/database/script/seed_data.sql
 
     - assets/images/
-    #- assets/snound_effect
-
-
 

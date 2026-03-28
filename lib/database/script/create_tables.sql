@@ -11,39 +11,42 @@ CREATE TABLE IF NOT EXISTS products (
 CREATE TABLE IF NOT EXISTS photos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product_id INTEGER,
-    image_path TEXT NOT NULL UNIQUE,   -- Đường dẫn file ảnh (duy nhất)
+    image_path TEXT NOT NULL,    --UNIQUE
     -- Trạng thái xử lý của ảnh
     status TEXT NOT NULL DEFAULT 'captured' CHECK (
         status IN (
-            'captured', -- Ảnh vừa chụp xong
-            'queued',   -- Đang chờ xử lý
+            'captured',   -- Ảnh vừa chụp xong
+            'queued',     -- Đang chờ xử lý
             'processing', -- Đang xử lý
-            'ready',    -- Đã xử lý xong, sẵn sàng
-            'failed'    -- Xử lý thất bại
+            'ready',      -- Đã xử lý xong, sẵn sàng
+            'failed'      -- Xử lý thất bại
         )
     ),
-    -- CÁC CỘT METADATA CẦN THÊM
+    -- CÁC CỘT METADATA
     title TEXT,                 -- Tiêu đề ảnh
     description TEXT,           -- Mô tả ảnh
-    price REAL,                 -- Giá sản phẩm trong ảnh (có thể khác giá trong bảng products)
+    price REAL,                 -- Giá sản phẩm trong ảnh
     category TEXT,              -- Danh mục của ảnh
     note TEXT,                  -- Ghi chú cho ảnh
     
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- Thời gian tạo
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- Thời gian cập nhật
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     
     FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
 );
 
--- Tạo trigger để tự động cập nhật updated_at
+-- Tạo trigger cho photos (đã thêm FOR EACH ROW)
 CREATE TRIGGER IF NOT EXISTS update_photos_updated_at 
     AFTER UPDATE ON photos
+    FOR EACH ROW
 BEGIN
-    UPDATE photos SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    UPDATE photos SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS update_products_updated_at 
-    AFTER UPDATE ON products
-BEGIN
-    UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-END;
+-- Tạo trigger cho products (đã thêm FOR EACH ROW)
+--CREATE TRIGGER IF NOT EXISTS update_products_updated_at 
+--    AFTER UPDATE ON products
+--    FOR EACH ROW
+--BEGIN
+--    UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+--END;

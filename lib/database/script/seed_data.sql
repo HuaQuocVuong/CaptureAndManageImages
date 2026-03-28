@@ -1,4 +1,4 @@
--- Thêm dữ liệu mẫu cho products
+-- Thêm dữ liệu mẫu cho products để test 
 INSERT
     OR IGNORE INTO products (name, category, price, note)
 VALUES (

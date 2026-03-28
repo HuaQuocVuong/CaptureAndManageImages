@@ -12,7 +12,8 @@ class PhotoGalleryScreen extends StatefulWidget {
   State<PhotoGalleryScreen> createState() => _PhotoGalleryScreenState();
 }
 
-class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
+class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
+    with WidgetsBindingObserver {
   // Khởi tạo lớp truy cập dữ liệu (Data Access Object) cho Photo
   final PhotoDao _photoDao = PhotoDao();
 
@@ -25,26 +26,47 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Thêm observer
     // Tải dữ liệu ngay khi màn hình được khởi tạo
     _loadPhotos();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Xóa observer
+    super.dispose();
+  }
+
+  // Lắng nghe khi app quay lại từ background
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App quay lại từ background, reload dữ liệu
+      _loadPhotos();
+    }
+  }
+
   /// Hàm xử lý tải danh sách ảnh từ cơ sở dữ liệu
   Future<void> _loadPhotos() async {
+    // Kiểm tra widget còn tồn tại trước khi cập nhật state
+    if (!mounted) return;
+
     setState(() => _isLoading = true);
     try {
       // Gọi DAO để lấy tất cả ảnh
       final photos = await _photoDao.getAllPhotos();
-      setState(() {
-        _photos = photos; // Cập nhật danh sách ảnh vào state
-        _isLoading = false; // Tắt loading
-      });
+      // Kiểm tra lại mounted sau khi await
+      if (mounted) {
+        setState(() {
+          _photos = photos; // Cập nhật danh sách ảnh vào state
+          _isLoading = false; // Tắt loading
+        });
+      }
     } catch (e) {
       // Xử lý nếu xảy ra lỗi trong quá trình truy vấn
-      setState(() => _isLoading = false);
-      // Hiển thị thông báo lỗi nếu quá trình lấy dữ liệu thất bại
       if (mounted) {
-        // Hiển thị thông báo lỗi nhanh (SnackBar) cho người dùng
+        setState(() => _isLoading = false);
+        // Hiển thị thông báo lỗi nếu quá trình lấy dữ liệu thất bại
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Lỗi tải ảnh: $e')));
@@ -56,9 +78,11 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
   Future<void> _showShareOptions(PhotoTask photo) async {
     final file = File(photo.filePath);
     if (!await file.exists()) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Không tìm thấy file ảnh')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không tìm thấy file ảnh')),
+        );
+      }
       return;
     }
 
@@ -75,13 +99,18 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                 onTap: () async {
                   Navigator.pop(context); // đóng bottom sheet
                   try {
-                    await Share.shareXFiles([
-                      XFile(photo.filePath),
-                    ]); //text: 'Chia sẻ ảnh từ ứng dụng');
+                    await Share.shareXFiles([XFile(photo.filePath)]);
+                    await Future.delayed(const Duration(milliseconds: 500));
+                    // RELOAD DỮ LIỆU SAU KHI QUAY LẠI
+                    if (mounted) {
+                      _loadPhotos();
+                    }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Lỗi chia sẻ ảnh: $e')),
-                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Lỗi chia sẻ ảnh: $e')),
+                      );
+                    }
                   }
                 },
               ),
@@ -97,25 +126,33 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                     // Tạo chuỗi metadata
                     String metadataText = 'THÔNG TIN SẢN PHẨM\n';
                     if (photo.title != null) {
-                      metadataText += 'Tên sản phẩm: ${photo.title}\n';
+                      metadataText += '- Tên sản phẩm: ${photo.title}.\n';
                     }
                     if (photo.category != null) {
-                      metadataText += 'Danh mục: ${photo.category}\n';
+                      metadataText += '- Danh mục: ${photo.category}.\n';
                     }
                     if (photo.price != null) {
                       metadataText +=
-                          'Giá phẩm: ${_formatPrice(photo.price!)}đ\n';
+                          '- Giá sản phẩm: ${_formatPrice(photo.price!)}đ.\n';
                     }
                     try {
                       await Share.share(metadataText, subject: 'Metadata ảnh');
+                      // ĐỢI SAU KHI SHARE XONG
+                      await Future.delayed(const Duration(milliseconds: 500));
+                      // RELOAD DỮ LIỆU
+                      if (mounted) {
+                        _loadPhotos();
+                      }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Lỗi chia sẻ metadata: $e')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Lỗi chia sẻ metadata: $e')),
+                        );
+                      }
                     }
                   },
                 ),
-              // 3Chia sẻ ảnh + metadata (nếu có metadata)
+              // Chia sẻ ảnh + metadata (nếu có metadata)
               if (photo.title != null ||
                   photo.category != null ||
                   photo.price != null)
@@ -126,23 +163,31 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                     Navigator.pop(context);
                     String metadataText = 'THÔNG TIN SẢN PHẨM\n';
                     if (photo.title != null) {
-                      metadataText += 'Sản phẩm: ${photo.title}\n';
+                      metadataText += '- Sản phẩm: ${photo.title}.\n';
                     }
                     if (photo.category != null) {
-                      metadataText += 'Danh mục: ${photo.category}\n';
+                      metadataText += '- Danh mục: ${photo.category}.\n';
                     }
                     if (photo.price != null) {
                       metadataText +=
-                          'Giá phẩm: ${_formatPrice(photo.price!)}đ\n';
+                          '- Giá sản phẩm: ${_formatPrice(photo.price!)}đ.\n';
                     }
                     try {
                       await Share.shareXFiles([
                         XFile(photo.filePath),
                       ], text: metadataText);
+                      // ĐỢI SAU KHI SHARE XONG
+                      await Future.delayed(const Duration(milliseconds: 500));
+                      // RELOAD DỮ LIỆU
+                      if (mounted) {
+                        _loadPhotos();
+                      }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Lỗi chia sẻ: $e')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Lỗi chia sẻ: $e')),
+                        );
+                      }
                     }
                   },
                 ),
@@ -214,8 +259,9 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                       (_) => _loadPhotos(),
                     ); // Sau khi quay lại từ MetadataForm, tự động load lại ảnh
                   },
-                  onLongPress: () =>
-                      _showShareOptions(photo), // <-- Thêm dòng này
+                  onLongPress: () => _showShareOptions(
+                    photo,
+                  ), // Nhấn giữ để hiện tùy chọn chia sẻ
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -249,7 +295,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                         ),
                       ),
 
-                      // Hiển thị metadata nếu có (THÊM PHẦN NÀY)
+                      // Hiển thị metadata nếu có
                       if (photo.title != null ||
                           photo.category != null ||
                           photo.price != null)
@@ -328,7 +374,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
       case PhotoStatus.failed:
         return Colors.red; // Thất bại
       default:
-        return Colors.grey;
+        return Colors.grey; // Mặc định
     }
   }
 }

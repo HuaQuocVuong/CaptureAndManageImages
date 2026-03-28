@@ -119,7 +119,7 @@ class PhotoDao {
         return _mapToPhotoTask(maps[i]);
       });
     } catch (e) {
-      print('Lỗi getPhotosByStatus: $e');
+      //print('Lỗi getPhotosByStatus: $e');
       return [];
     }
   }

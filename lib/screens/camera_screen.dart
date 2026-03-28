@@ -1,16 +1,21 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+
 import 'package:module_s1/database/photo_dao.dart';
 import 'package:module_s1/database/product_dao.dart';
+
 import 'package:module_s1/models/photo_model.dart';
 import 'package:module_s1/models/product_model.dart';
+
 import 'package:module_s1/screens/camera/camera_controller_manager.dart';
 import 'package:module_s1/screens/camera/photo_processor.dart';
 import 'package:module_s1/screens/camera/camera_widgets.dart';
 import 'package:module_s1/screens/photo_gallery_screen.dart';
 import 'package:module_s1/screens/bulk_edit_screen.dart';
+
 import 'package:module_s1/widgets/grid_painter.dart';
+
 import 'package:module_s1/metadata/metadata_form.dart';
 
 // Màn hình chụp ảnh chính của ứng dụng (Singer/Batch Short)
@@ -133,7 +138,7 @@ class _CameraScreenState extends State<CameraScreen>
       // Chụp ảnh và lấy đường dẫn file
       final imagePath = await _cameraManager!.capture();
       if (imagePath == null) {
-        _showSnackBar('Chụp ảnh thất bại', isError: true);
+        //_showSnackBar('Chụp ảnh thất bại', isError: true);
         return;
       }
       // Lưu thông tin ảnh vào database, nhận ID
