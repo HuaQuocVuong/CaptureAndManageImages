@@ -97,7 +97,7 @@ class MetadataFormState extends State<MetadataForm> {
         });
       }
     } catch (e) {
-      debugPrint('Lỗi load sản phẩm: $e');
+      //debugPrint('Lỗi load sản phẩm: $e');
     }
   }
 
@@ -111,7 +111,7 @@ class MetadataFormState extends State<MetadataForm> {
         });
       }
     } catch (e) {
-      debugPrint('Lỗi load sản phẩm: $e');
+      //debugPrint('Lỗi load sản phẩm: $e');
     }
   }
 

@@ -47,7 +47,7 @@ class _BulkEditScreenState extends State<BulkEditScreen> {
     if (_selectedProduct == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn sản phẩm')));
+      ).showSnackBar(const SnackBar(content: Text('Vui lòng chọn 1 ảnh')));
       return;
     }
 

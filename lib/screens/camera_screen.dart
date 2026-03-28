@@ -1,5 +1,7 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:audioplayers/audioplayers.dart';
 
 import 'package:module_s1/database/photo_dao.dart';
@@ -17,6 +19,7 @@ import 'package:module_s1/screens/bulk_edit_screen.dart';
 import 'package:module_s1/widgets/grid_painter.dart';
 
 import 'package:module_s1/metadata/metadata_form.dart';
+import 'package:module_s1/metadata/batch_metadata_form.dart';
 
 // Màn hình chụp ảnh chính của ứng dụng (Singer/Batch Short)
 class CameraScreen extends StatefulWidget {
@@ -125,6 +128,92 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
+  // HÀM RESET HÀNG ĐỢI (SỬA THEO YÊU CẦU)
+  // Xóa ảnh chưa gán metadata, giữ lại ảnh đã gán, ẩn tất cả khỏi UI
+  Future<void> _resetQueue() async {
+    // Hiển thị dialog xác nhận
+    final shouldReset = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Xác nhận reset'),
+          content: Text(
+            _queue.where((p) => p.status != PhotoStatus.ready).isEmpty
+                ? 'Tất cả ảnh đã được gán metadata. Bạn có muốn ẩn chúng khỏi hàng đợi?'
+                : 'Bạn có chắc chắn muốn xóa ${_queue.where((p) => p.status != PhotoStatus.ready).length} ảnh chưa gán metadata?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Đồng ý', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldReset != true) return;
+
+    try {
+      // Tách riêng ảnh đã gán (ready) và ảnh chưa gán
+      final readyPhotos = _queue
+          .where((p) => p.status == PhotoStatus.ready)
+          .toList();
+      final unreadyPhotos = _queue
+          .where((p) => p.status != PhotoStatus.ready)
+          .toList();
+
+      // Xóa ảnh chưa gán metadata (xóa file và xóa khỏi database)
+      for (var task in _queue) {
+        try {
+          // Xóa file ảnh vật lý
+          final file = File(task.filePath);
+          if (await file.exists()) {
+            await file.delete();
+          }
+          // Xóa khỏi database
+          await _photoDao.deletePhoto(int.parse(task.id));
+        } catch (e) {
+          //print('Không thể xóa ảnh: ${task.filePath}');
+        }
+      }
+
+      // Cập nhật UI: Ẩn tất cả ảnh (không hiển thị hàng đợi nữa)
+      if (mounted && !_disposed) {
+        setState(() {
+          // Xóa tất cả ảnh khỏi queue (ẩn đi)
+          _queue.clear();
+        });
+      }
+
+      // Hiển thị thông báo kết quả
+      if (mounted && !_disposed) {
+        if (unreadyPhotos.isNotEmpty && readyPhotos.isNotEmpty) {
+          _showSnackBar(
+            'Đã xóa ${unreadyPhotos.length} ảnh chưa gán metadata, '
+            'giữ lại ${readyPhotos.length} ảnh đã gán (đã ẩn khỏi hàng đợi)',
+          );
+        } else if (unreadyPhotos.isNotEmpty) {
+          _showSnackBar('Đã xóa ${unreadyPhotos.length} ảnh chưa gán metadata');
+        } else if (readyPhotos.isNotEmpty) {
+          _showSnackBar(
+            'Đã ẩn ${readyPhotos.length} ảnh đã gán metadata khỏi hàng đợi',
+          );
+        } else {
+          _showSnackBar('Không có ảnh nào để reset');
+        }
+      }
+    } catch (e) {
+      if (mounted && !_disposed) {
+        _showSnackBar('Lỗi khi reset: $e', isError: true);
+      }
+    }
+  }
+
   // Xử lý sự kiện chụp ảnh
   Future<void> _handleCapture() async {
     // Kiểm tra camera đã sẵn sàng chưa
@@ -176,21 +265,28 @@ class _CameraScreenState extends State<CameraScreen>
     }
   }
 
-  // Điều hướng tới màn hình nhập metadata cho ảnh vừa chụp
+  // Điều hướng tới màn hình nhập metadata
   void _navigateToMetadata(String imagePath, int photoId) {
     if (!mounted || _disposed) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            MetadataForm(imagePath: imagePath, photoId: photoId),
-      ),
-    ).then((_) {
-      if (!_disposed && mounted) {
-        _loadRecentPhotos();
-        _loadRecentProducts();
-      }
-    });
+
+    if (_isBatchMode) {
+      // BATCH MODE: Mở form cho tất cả ảnh ready
+      _navigateToBatchMetadata();
+    } else {
+      // SINGLE MODE: Mở form cho 1 ảnh vừa chụp
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              MetadataForm(imagePath: imagePath, photoId: photoId),
+        ),
+      ).then((_) {
+        if (!_disposed && mounted) {
+          _loadRecentPhotos();
+          _loadRecentProducts();
+        }
+      });
+    }
   }
 
   // Điều hướng tới thư viện ảnh
@@ -216,6 +312,36 @@ class _CameraScreenState extends State<CameraScreen>
       MaterialPageRoute(
         builder: (context) =>
             BulkEditScreen(photos: readyPhotos, products: _recentProducts),
+      ),
+    ).then((_) {
+      if (!_disposed && mounted) {
+        _loadRecentPhotos();
+        _loadRecentProducts();
+      }
+    });
+  }
+
+  // Điều hướng tới màn hình nhập metadata cho BATCH MODE
+  void _navigateToBatchMetadata() {
+    if (!mounted || _disposed) return;
+
+    // Lấy tất cả ảnh đã sẵn sàng (ready)
+    final readyPhotos = _queue
+        .where((p) => p.status == PhotoStatus.ready)
+        .toList();
+
+    if (readyPhotos.isEmpty) {
+      _showSnackBar('Không có ảnh nào sẵn sàng để chỉnh sửa', isError: true);
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BatchMetadataForm(
+          photos: readyPhotos,
+          recentProducts: _recentProducts,
+        ),
       ),
     ).then((_) {
       if (!_disposed && mounted) {
@@ -371,9 +497,10 @@ class _CameraScreenState extends State<CameraScreen>
             child: CameraTopBar(
               onBack: () => Navigator.pop(context),
               onRefresh: () {
-                _loadRecentPhotos();
-                _loadRecentProducts();
-                _showSnackBar('Đã làm mới dữ liệu');
+                //_loadRecentPhotos();
+                //_loadRecentProducts();
+                //_showSnackBar('Đã làm mới dữ liệu');
+                _resetQueue(); // Gọi hàm reset
               },
               isBatchMode: _isBatchMode,
               queueLength: _queue.length,
@@ -397,10 +524,11 @@ class _CameraScreenState extends State<CameraScreen>
                       task: task,
                       onTap: () {
                         if (task.status == PhotoStatus.ready) {
-                          _navigateToMetadata(
-                            task.filePath,
-                            int.parse(task.id),
-                          );
+                          _navigateToBatchMetadata();
+                          //_navigateToMetadata(
+                          //task.filePath,
+                          //int.parse(task.id),
+                          //);
                         }
                       },
                     );
