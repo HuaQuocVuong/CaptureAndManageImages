@@ -14,59 +14,59 @@ class PhotoGalleryScreen extends StatefulWidget {
 
 class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
     with WidgetsBindingObserver {
-  // Khởi tạo lớp truy cập dữ liệu (Data Access Object) cho Photo
   final PhotoDao _photoDao = PhotoDao();
-
-  // Danh sách chứa dữ liệu ảnh lấy từ Database
   List<PhotoTask> _photos = [];
-
-  // Biến trạng thái để hiển thị vòng xoay loading khi đang tải dữ liệu
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // Thêm observer
-    // Tải dữ liệu ngay khi màn hình được khởi tạo
+    WidgetsBinding.instance.addObserver(this);
     _loadPhotos();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // Xóa observer
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  // Lắng nghe khi app quay lại từ background
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // App quay lại từ background, reload dữ liệu
       _loadPhotos();
     }
   }
 
-  /// Hàm xử lý tải danh sách ảnh từ cơ sở dữ liệu
-  Future<void> _loadPhotos() async {
-    // Kiểm tra widget còn tồn tại trước khi cập nhật state
-    if (!mounted) return;
+  // LOGIC NHÓM ẢNH: Chuyển list phẳng thành Map theo danh mục
+  Map<String, List<PhotoTask>> get _groupedPhotos {
+    final Map<String, List<PhotoTask>> groups = {};
+    for (var photo in _photos) {
+      final category = (photo.category == null || photo.category!.isEmpty)
+          ? 'Chưa phân loại'
+          : photo.category!;
+      if (!groups.containsKey(category)) {
+        groups[category] = [];
+      }
+      groups[category]!.add(photo);
+    }
+    return groups;
+  }
 
+  Future<void> _loadPhotos() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      // Gọi DAO để lấy tất cả ảnh
       final photos = await _photoDao.getAllPhotos();
-      // Kiểm tra lại mounted sau khi await
       if (mounted) {
         setState(() {
-          _photos = photos; // Cập nhật danh sách ảnh vào state
-          _isLoading = false; // Tắt loading
+          _photos = photos;
+          _isLoading = false;
         });
       }
     } catch (e) {
-      // Xử lý nếu xảy ra lỗi trong quá trình truy vấn
       if (mounted) {
         setState(() => _isLoading = false);
-        // Hiển thị thông báo lỗi nếu quá trình lấy dữ liệu thất bại
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Lỗi tải ảnh: $e')));
@@ -74,7 +74,6 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
     }
   }
 
-  /// Hiển thị bottom sheet với các tùy chọn chia sẻ
   Future<void> _showShareOptions(PhotoTask photo) async {
     final file = File(photo.filePath);
     if (!await file.exists()) {
@@ -92,29 +91,23 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
         return SafeArea(
           child: Wrap(
             children: [
-              // Chia sẻ ảnh
               ListTile(
                 leading: const Icon(Icons.share),
                 title: const Text('Chia sẻ ảnh'),
                 onTap: () async {
-                  Navigator.pop(context); // đóng bottom sheet
+                  Navigator.pop(context);
                   try {
                     await Share.shareXFiles([XFile(photo.filePath)]);
                     await Future.delayed(const Duration(milliseconds: 500));
-                    // RELOAD DỮ LIỆU SAU KHI QUAY LẠI
-                    if (mounted) {
-                      _loadPhotos();
-                    }
+                    if (mounted) _loadPhotos();
                   } catch (e) {
-                    if (mounted) {
+                    if (mounted)
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Lỗi chia sẻ ảnh: $e')),
+                        SnackBar(content: Text('Lỗi chia sẻ: $e')),
                       );
-                    }
                   }
                 },
               ),
-              // Nếu ảnh có metadata, thêm tùy chọn chia sẻ metadata
               if (photo.title != null ||
                   photo.category != null ||
                   photo.price != null)
@@ -123,36 +116,31 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
                   title: const Text('Chia sẻ metadata'),
                   onTap: () async {
                     Navigator.pop(context);
-                    // Tạo chuỗi metadata
                     String metadataText = 'THÔNG TIN SẢN PHẨM\n';
+                    if (photo.productType != null) {
+                      metadataText += '- Loại sản phẩm: ${photo.productType} ';
+                    }
                     if (photo.title != null) {
-                      metadataText += '- Tên sản phẩm: ${photo.title}.\n';
+                      metadataText += '${photo.title}.\n';
                     }
-                    if (photo.category != null) {
-                      metadataText += '- Danh mục: ${photo.category}.\n';
+                    if (photo.color != null) {
+                      metadataText += '- Màu sắc: ${photo.color}.\n';
                     }
-                    if (photo.price != null) {
+                    if (photo.price != null)
                       metadataText +=
-                          '- Giá sản phẩm: ${_formatPrice(photo.price!)}đ.\n';
-                    }
+                          '- Giá: ${_formatPrice(photo.price!)}đ.\n';
                     try {
-                      await Share.share(metadataText, subject: 'Metadata ảnh');
-                      // ĐỢI SAU KHI SHARE XONG
+                      await Share.share(metadataText, subject: 'Metadata');
                       await Future.delayed(const Duration(milliseconds: 500));
-                      // RELOAD DỮ LIỆU
-                      if (mounted) {
-                        _loadPhotos();
-                      }
+                      if (mounted) _loadPhotos();
                     } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Lỗi chia sẻ metadata: $e')),
-                        );
-                      }
+                      if (mounted)
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
                     }
                   },
                 ),
-              // Chia sẻ ảnh + metadata (nếu có metadata)
               if (photo.title != null ||
                   photo.category != null ||
                   photo.price != null)
@@ -162,32 +150,30 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
                   onTap: () async {
                     Navigator.pop(context);
                     String metadataText = 'THÔNG TIN SẢN PHẨM\n';
-                    if (photo.title != null) {
-                      metadataText += '- Sản phẩm: ${photo.title}.\n';
+                    if (photo.productType != null) {
+                      metadataText += '- Loại sản phẩm: ${photo.productType} ';
                     }
-                    if (photo.category != null) {
-                      metadataText += '- Danh mục: ${photo.category}.\n';
+                    if (photo.title != null) {
+                      metadataText += '${photo.title}.\n';
+                    }
+                    if (photo.color != null) {
+                      metadataText += '- Màu sắc: ${photo.color}.\n';
                     }
                     if (photo.price != null) {
                       metadataText +=
-                          '- Giá sản phẩm: ${_formatPrice(photo.price!)}đ.\n';
+                          '- Giá: ${_formatPrice(photo.price!)}đ.\n';
                     }
                     try {
                       await Share.shareXFiles([
                         XFile(photo.filePath),
                       ], text: metadataText);
-                      // ĐỢI SAU KHI SHARE XONG
                       await Future.delayed(const Duration(milliseconds: 500));
-                      // RELOAD DỮ LIỆU
-                      if (mounted) {
-                        _loadPhotos();
-                      }
+                      if (mounted) _loadPhotos();
                     } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Lỗi chia sẻ: $e')),
-                        );
-                      }
+                      if (mounted)
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
                     }
                   },
                 ),
@@ -200,158 +186,169 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final grouped = _groupedPhotos;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Thư viện ảnh'),
+        title: const Text('Kho lưu trữ'),
         actions: [
-          // Nút bấm cho phép người dùng làm mới (refresh) danh sách thủ công
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadPhotos),
         ],
       ),
-      // Điều hướng hiển thị: Loading -> Empty State -> GridView
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            ) // Hiển thị khi đang đợi DB
+          ? const Center(child: CircularProgressIndicator())
           : _photos.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.photo_library, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Chưa có ảnh nào',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 8),
-                  // Nút quay lại màn hình trước đó để chụp ảnh
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Chụp ảnh ngay'),
-                  ),
-                ],
-              ),
-            )
-          // Hiển thị danh sách ảnh theo dạng lưới (3 cột)
-          : GridView.builder(
-              padding: const EdgeInsets.all(8),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3, // Hiển thị 3 cột
-                crossAxisSpacing: 4, // Khoảng cách ngang giữa các item
-                mainAxisSpacing: 4, // Khoảng cách dọc giữa các item
-              ),
-              itemCount: _photos.length,
-              itemBuilder: (context, index) {
-                final photo = _photos[index];
-                return GestureDetector(
-                  onTap: () {
-                    // Khi chạm vào một ảnh, chuyển hướng sang trang MetadataForm
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MetadataForm(
-                          imagePath: photo.filePath,
-                          photoId: int.parse(photo.id),
+          ? _buildEmptyState()
+          : CustomScrollView(
+              slivers: grouped.entries.map((entry) {
+                return SliverMainAxisGroup(
+                  slivers: [
+                    // PHẦN TIÊU ĐỀ DANH MỤC
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.label,
+                              size: 20,
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              entry.key.toUpperCase(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueGrey,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(child: Divider()),
+                          ],
                         ),
                       ),
-                    ).then(
-                      (_) => _loadPhotos(),
-                    ); // Sau khi quay lại từ MetadataForm, tự động load lại ảnh
-                  },
-                  onLongPress: () => _showShareOptions(
-                    photo,
-                  ), // Nhấn giữ để hiện tùy chọn chia sẻ
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Hiển thị ảnh từ file cục bộ
-                      Image.file(File(photo.filePath), fit: BoxFit.cover),
-
-                      // Badge hiển thị trạng thái của ảnh (Góc trên bên phải)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(
-                              photo.status,
-                            ), // Màu dựa trên trạng thái
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            // Lấy ký tự đầu của trạng thái để hiển thị (ví dụ: R, P, Q, F)
-                            photo.status.name[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                    ),
+                    // LƯỚI ẢNH CỦA DANH MỤC ĐÓ
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      sliver: SliverGrid(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 4,
+                              mainAxisSpacing: 4,
                             ),
-                          ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) =>
+                              _buildPhotoItem(entry.value[index]),
+                          childCount: entry.value.length,
                         ),
                       ),
-
-                      // Hiển thị metadata nếu có
-                      if (photo.title != null ||
-                          photo.category != null ||
-                          photo.price != null)
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            color: Colors.black54,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (photo.title != null)
-                                  Text(
-                                    photo.title!,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                if (photo.category != null)
-                                  Text(
-                                    photo.category!,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 9,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                if (photo.price != null)
-                                  Text(
-                                    '${_formatPrice(photo.price!)}đ',
-                                    style: const TextStyle(
-                                      color: Colors.greenAccent,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
-              },
+              }).toList(),
             ),
     );
   }
 
-  /// Format giá tiền để hiển thị
+  Widget _buildPhotoItem(PhotoTask photo) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MetadataForm(
+              imagePath: photo.filePath,
+              photoId: int.parse(photo.id),
+            ),
+          ),
+        ).then((_) => _loadPhotos());
+      },
+      onLongPress: () => _showShareOptions(photo),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(File(photo.filePath), fit: BoxFit.cover),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: _getStatusColor(photo.status),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                photo.status.name[0].toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          if (photo.title != null ||
+              photo.category != null ||
+              photo.price != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                color: Colors.black54,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (photo.title != null)
+                      Text(
+                        photo.title!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    if (photo.price != null)
+                      Text(
+                        '${_formatPrice(photo.price!)}đ',
+                        style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.photo_library, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          const Text('Chưa có ảnh nào', style: TextStyle(fontSize: 18)),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Chụp ảnh ngay'),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatPrice(double price) {
     if (price == price.toInt()) {
       return price.toInt().toString().replaceAllMapped(
@@ -362,19 +359,18 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
     return price.toString();
   }
 
-  /// Hàm xác định màu sắc dựa trên trạng thái (Status) của ảnh
   Color _getStatusColor(PhotoStatus status) {
     switch (status) {
       case PhotoStatus.ready:
-        return Colors.green; // Hoàn thành/Sẵn sàng
+        return Colors.green;
       case PhotoStatus.processing:
-        return Colors.orange; // Đang xử lý
+        return Colors.orange;
       case PhotoStatus.queued:
-        return Colors.blue; // Đang chờ
+        return Colors.blue;
       case PhotoStatus.failed:
-        return Colors.red; // Thất bại
+        return Colors.red;
       default:
-        return Colors.grey; // Mặc định
+        return Colors.grey;
     }
   }
 }

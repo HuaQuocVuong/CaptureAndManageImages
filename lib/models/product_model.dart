@@ -1,12 +1,14 @@
 class Product {
   //Thuộc tính của sản phẩm
-  int? id;  //ID
-  String name;  // Tên sản phẩm
-  String category;  // Danh mục
-  double? price;  // Giá tiền
+  int? id; //ID
+  String name; // Tên sản phẩm
+  String category; // Danh mục
+  double? price; // Giá tiền
   String? note; // Ghi chú
-  DateTime? createdAt;  // Thời điểm tạo 
-  DateTime? updatedAt;  // Thời điểm cập nhật cuối
+  String? productType; // Loại sản phẩm (Thêm mới)
+  String? color; // Màu sắc (Thêm mới)
+  DateTime? createdAt; // Thời điểm tạo
+  DateTime? updatedAt; // Thời điểm cập nhật cuối
 
   //Constructor dùng để khởi tạo đối tượng Product
   Product({
@@ -15,12 +17,15 @@ class Product {
     required this.category,
     this.price,
     this.note,
+    this.productType, // Thêm productType
+    this.color, // Thêm color
     this.createdAt,
     this.updatedAt,
   });
 
   // Factory constructor từ Map
-  factory Product.fromMap(Map<String, dynamic> map) { // Chuyển DateTime thành String để lưu trữ vì DB thường không lưu trực tiếp kiểu Date
+  factory Product.fromMap(Map<String, dynamic> map) {
+    // Chuyển DateTime thành String để lưu trữ vì DB thường không lưu trực tiếp kiểu Date
     return Product(
       id: map['id'],
       name: map['name'],
@@ -28,6 +33,8 @@ class Product {
       // Ép kiểu về double đề phòng trường hợp dữ liệu trả về là int
       price: map['price']?.toDouble(),
       note: map['note'],
+      productType: map['productType'], // Thêm productType
+      color: map['color'], // Thêm color
       // Chuyển chuỗi String ISO8601 từ DB thành đối tượng DateTime trong Dart
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'])
@@ -47,18 +54,21 @@ class Product {
       'category': category,
       'price': price,
       'note': note,
+      'productType': productType, // Thêm productType
+      'color': color, // Thêm color
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
-  
   Product copyWith({
     int? id,
     String? name,
     String? category,
     double? price,
     String? note,
+    String? productType, // Thêm productType
+    String? color, // Thêm color
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -68,6 +78,8 @@ class Product {
       category: category ?? this.category,
       price: price ?? this.price,
       note: note ?? this.note,
+      productType: productType ?? this.productType, // Thêm productType
+      color: color ?? this.color, // Thêm color
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -76,7 +88,7 @@ class Product {
   // Thêm method toString để dễ debug
   @override
   String toString() {
-    return 'Product{id: $id, name: $name, category: $category, price: $price, note: $note, createdAt: $createdAt, updatedAt: $updatedAt}';
+    return 'Product{id: $id, name: $name, category: $category, price: $price, note: $note, productType: $productType, color: $color, createdAt: $createdAt, updatedAt: $updatedAt}';
   }
 
   // Thêm method equals để so sánh 2 product
@@ -88,15 +100,21 @@ class Product {
         other.name == name &&
         other.category == category &&
         other.price == price &&
-        other.note == note;
+        other.note == note &&
+        other.productType == productType && // Thêm productType
+        other.color == color; // Thêm color
   }
 
   @override
   int get hashCode {
-    return id.hashCode ^
-        name.hashCode ^
-        category.hashCode ^
-        price.hashCode ^
-        note.hashCode;
+    return Object.hash(
+      id,
+      name,
+      category,
+      price,
+      note,
+      productType, // Thêm productType
+      color, // Thêm color
+    );
   }
 }

@@ -22,6 +22,10 @@ class MetadataFormState extends State<MetadataForm> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _productTypeController =
+      TextEditingController(); // Loại sản phẩm
+  final TextEditingController _colorController =
+      TextEditingController(); // Màu sắc
 
   String? _selectedCategory; // Danh mục được chọn
 
@@ -54,12 +58,16 @@ class MetadataFormState extends State<MetadataForm> {
     });
 
     try {
-      final photo = await _photoDao.getPhotoById(widget.photoId.toString());
+      //final photo = await _photoDao.getPhotoById(widget.photoId.toString());
+      final photo = await _photoDao.getPhotoById(widget.photoId!);
       if (photo != null && mounted) {
         setState(() {
           _nameController.text = photo.title ?? '';
           _selectedCategory = photo.category;
           _noteController.text = photo.note ?? '';
+
+          _productTypeController.text = photo.productType ?? '';
+          _colorController.text = photo.color ?? '';
           if (photo.price != null) {
             _priceController.text = PriceFormatter.formatForDisplay(
               photo.price!,
@@ -94,6 +102,8 @@ class MetadataFormState extends State<MetadataForm> {
         setState(() {
           _existingProduct = product;
           _useExistingProduct = true;
+          _productTypeController.text = product.productType ?? '';
+          _colorController.text = product.color ?? '';
         });
       }
     } catch (e) {
@@ -124,6 +134,8 @@ class MetadataFormState extends State<MetadataForm> {
       _selectedCategory = product.category;
       _priceController.text = PriceFormatter.formatForDisplay(product.price);
       _noteController.text = product.note ?? '';
+      _productTypeController.text = product.productType ?? '';
+      _colorController.text = product.color ?? '';
     });
   }
 
@@ -135,6 +147,8 @@ class MetadataFormState extends State<MetadataForm> {
       _nameController.clear();
       _priceController.clear();
       _noteController.clear();
+      _productTypeController.clear();
+      _colorController.clear();
       _selectedCategory = null;
     });
   }
@@ -172,6 +186,12 @@ class MetadataFormState extends State<MetadataForm> {
           note: _noteController.text.isNotEmpty
               ? _noteController.text
               : _existingProduct!.note,
+          productType: _productTypeController.text.isNotEmpty
+              ? _productTypeController.text
+              : _existingProduct!.productType,
+          color: _colorController.text.isNotEmpty
+              ? _colorController.text
+              : _existingProduct!.color,
         );
         await _productDao.update(updatedProduct);
       } else {
@@ -181,6 +201,12 @@ class MetadataFormState extends State<MetadataForm> {
           category: _selectedCategory!,
           price: priceValue,
           note: _noteController.text.isNotEmpty ? _noteController.text : null,
+          productType: _productTypeController.text.isNotEmpty
+              ? _productTypeController.text
+              : null,
+          color: _colorController.text.isNotEmpty
+              ? _colorController.text
+              : null,
         );
         productId = await _productDao.insert(product);
       }
@@ -196,6 +222,12 @@ class MetadataFormState extends State<MetadataForm> {
           category: _selectedCategory,
           price: priceValue,
           note: _noteController.text.isNotEmpty ? _noteController.text : null,
+          productType: _productTypeController.text.isNotEmpty
+              ? _productTypeController.text
+              : null,
+          color: _colorController.text.isNotEmpty
+              ? _colorController.text
+              : null,
           status: PhotoStatus.ready,
         );
       } else {
@@ -209,6 +241,12 @@ class MetadataFormState extends State<MetadataForm> {
           category: _selectedCategory,
           price: priceValue,
           note: _noteController.text.isNotEmpty ? _noteController.text : null,
+          productType: _productTypeController.text.isNotEmpty
+              ? _productTypeController.text
+              : null,
+          color: _colorController.text.isNotEmpty
+              ? _colorController.text
+              : null,
           status: PhotoStatus.ready,
         );
       }
@@ -296,6 +334,12 @@ class MetadataFormState extends State<MetadataForm> {
                             _buildNameField(),
                             const SizedBox(height: 15),
                             _buildCategoryDropdown(),
+                            if (_selectedCategory != null) ...[
+                              const SizedBox(height: 15),
+                              _buildProductTypeField(),
+                              const SizedBox(height: 15),
+                              _buildColorField(),
+                            ],
                             const SizedBox(height: 15),
                             _buildPriceField(),
                             const SizedBox(height: 5),
@@ -446,6 +490,44 @@ class MetadataFormState extends State<MetadataForm> {
           return 'Vui lòng chọn danh mục';
         return null;
       },
+    );
+  }
+
+  // Ô nhập Loại sản phẩm
+  Widget _buildProductTypeField() {
+    return TextFormField(
+      controller: _productTypeController,
+      decoration: InputDecoration(
+        labelText: 'Loại sản phẩm',
+        labelStyle: const TextStyle(fontWeight: FontWeight.normal),
+        border: const OutlineInputBorder(),
+        //hintText: 'Ví dụ: Điện thoại, Laptop, Phụ kiện...',
+        prefixIcon: const Icon(Icons.category, size: 20),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+      ),
+      enabled: !_useExistingProduct || _isEditMode,
+    );
+  }
+
+  // Ô nhập Màu sắc
+  Widget _buildColorField() {
+    return TextFormField(
+      controller: _colorController,
+      decoration: InputDecoration(
+        labelText: 'Màu sắc',
+        labelStyle: const TextStyle(fontWeight: FontWeight.normal),
+        border: const OutlineInputBorder(),
+        //hintText: 'Ví dụ: Đen, Trắng, Xanh, Đỏ...',
+        prefixIcon: const Icon(Icons.color_lens, size: 20),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+      ),
+      enabled: !_useExistingProduct || _isEditMode,
     );
   }
 
@@ -621,6 +703,8 @@ class MetadataFormState extends State<MetadataForm> {
     _nameController.dispose();
     _priceController.dispose();
     _noteController.dispose();
+    _productTypeController.dispose();
+    _colorController.dispose();
     super.dispose();
   }
 }

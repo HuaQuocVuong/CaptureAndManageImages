@@ -36,6 +36,8 @@ class PhotoDao {
     double? price,
     String? category,
     String? note,
+    String? productType, // Thêm tham số productType
+    String? color, // Thêm tham số color
     PhotoStatus status = PhotoStatus.captured,
   }) async {
     Database db = await _database;
@@ -51,6 +53,8 @@ class PhotoDao {
       'price': price,
       'category': category,
       'note': note,
+      'productType': productType, // Thêm trường productType
+      'color': color, // Thêm trường color
       'created_at': now,
       'updated_at': now,
     };
@@ -66,31 +70,41 @@ class PhotoDao {
 
   // Lấy ảnh theo ID
   // Trả về đối tượng PhotoTask hoặc null nếu không tìm thấy
-  Future<PhotoTask?> getPhotoById(String id) async {
+  Future<PhotoTask?> getPhotoById(int id) async {
     Database db = await _database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'photos',
-      where: 'id = ?',
-      whereArgs: [int.tryParse(id)], // Chuyển String sang int
-    );
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'photos',
+        where: 'id = ?',
+        whereArgs: [id], // Sử dụng id trực tiếp vì đã là int
+      );
 
-    if (maps.isEmpty) return null;
-    return _mapToPhotoTask(maps.first);
+      if (maps.isEmpty) return null;
+      return _mapToPhotoTask(maps.first);
+    } catch (e) {
+      //print('Lỗi getPhotoById: $e');
+      return null;
+    }
   }
 
   // Lấy thông tin ảnh dựa trên đường dẫn file
   Future<PhotoTask?> getPhotoByPath(String imagePath) async {
     Database db = await _database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'photos',
-      where: 'image_path = ?',
-      whereArgs: [imagePath],
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'photos',
+        where: 'image_path = ?',
+        whereArgs: [imagePath],
 
-      /// imagePath đường dẫn tuyệt đối đến file ảnh
-    );
+        /// imagePath đường dẫn tuyệt đối đến file ảnh
+      );
 
-    if (maps.isEmpty) return null;
-    return _mapToPhotoTask(maps.first);
+      if (maps.isEmpty) return null;
+      return _mapToPhotoTask(maps.first);
+    } catch (e) {
+      //print('Lỗi getPhotoByPath: $e');
+      return null;
+    }
   }
 
   // Lấy tất cả ảnh từ database, sắp xếp theo thời gian tạo mới nhất
@@ -137,43 +151,58 @@ class PhotoDao {
   // productId: ID của sản phẩm
   Future<List<PhotoTask>> getPhotosByProduct(int productId) async {
     Database db = await _database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'photos',
-      where: 'product_id = ?',
-      whereArgs: [productId],
-      orderBy: 'created_at DESC',
-    );
-    return maps.map(_mapToPhotoTask).toList();
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'photos',
+        where: 'product_id = ?',
+        whereArgs: [productId],
+        orderBy: 'created_at DESC',
+      );
+      return maps.map(_mapToPhotoTask).toList();
+    } catch (e) {
+      //print('Lỗi getPhotosByProduct: $e');
+      return [];
+    }
   }
 
   // Lấy các ảnh đang chờ xử lý (không phải ready hoặc failed)
   // Thường dùng để hiển thị các tác vụ cần xử lý trong queue
   Future<List<PhotoTask>> getPendingTasks() async {
     Database db = await _database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'photos',
-      where: 'status NOT IN (?, ?)', // Loại trừ ready và failed
-      whereArgs: [PhotoStatus.ready.name, PhotoStatus.failed.name],
-      orderBy: 'created_at DESC',
-    );
-    return maps.map(_mapToPhotoTask).toList();
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'photos',
+        where: 'status NOT IN (?, ?)', // Loại trừ ready và failed
+        whereArgs: [PhotoStatus.ready.name, PhotoStatus.failed.name],
+        orderBy: 'created_at DESC',
+      );
+      return maps.map(_mapToPhotoTask).toList();
+    } catch (e) {
+      //print('Lỗi getPendingTasks: $e');
+      return [];
+    }
   }
 
   // Tìm kiếm ảnh dựa trên tiêu đề, mô tả hoặc ghi chú
   // query từ khóa tìm kiếm (không phân biệt hoa thường)
   Future<List<PhotoTask>> searchPhotos(String query) async {
     Database db = await _database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'photos',
-      where: 'title LIKE ? OR description LIKE ? OR note LIKE ?',
-      whereArgs: [
-        '%$query%',
-        '%$query%',
-        '%$query%',
-      ], // cho phép tìm kiếm chứa từ khóa
-      orderBy: 'created_at DESC',
-    );
-    return maps.map(_mapToPhotoTask).toList();
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'photos',
+        where: 'title LIKE ? OR description LIKE ? OR note LIKE ?',
+        whereArgs: [
+          '%$query%',
+          '%$query%',
+          '%$query%',
+        ], // cho phép tìm kiếm chứa từ khóa
+        orderBy: 'created_at DESC',
+      );
+      return maps.map(_mapToPhotoTask).toList();
+    } catch (e) {
+      //print('Lỗi searchPhotos: $e');
+      return [];
+    }
   }
 
   // PHƯƠNG THỨC CẬP NHẬT
@@ -187,6 +216,8 @@ class PhotoDao {
     double? price,
     String? category,
     String? note,
+    String? productType, // Thêm tham số productType
+    String? color, // Thêm tham số color
     PhotoStatus? status,
   }) async {
     Database db = await _database;
@@ -200,6 +231,8 @@ class PhotoDao {
     if (price != null) updates['price'] = price;
     if (category != null) updates['category'] = category;
     if (note != null) updates['note'] = note;
+    if (productType != null) updates['productType'] = productType;
+    if (color != null) updates['color'] = color;
     if (status != null) updates['status'] = status.name;
 
     // Luôn cập nhật thời gian sửa đổi để biết lần cuối thay đổi
@@ -214,44 +247,58 @@ class PhotoDao {
   // Cập nhật toàn bộ thông tin của một đối tượng PhotoTask
   Future<void> updatePhoto(PhotoTask photo) async {
     Database db = await _database;
-    await db.update(
-      'photos',
-      {
-        'image_path': photo.filePath,
-        'status': photo.status.name,
-        'product_id': photo.productId,
-        'title': photo.title,
-        'description': photo.description,
-        'price': photo.price,
-        'category': photo.category,
-        'note': photo.note,
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [int.parse(photo.id)],
-    );
+    try {
+      await db.update(
+        'photos',
+        {
+          'image_path': photo.filePath,
+          'status': photo.status.name,
+          'product_id': photo.productId,
+          'title': photo.title,
+          'description': photo.description,
+          'price': photo.price,
+          'category': photo.category,
+          'note': photo.note,
+          'productType': photo.productType,
+          'color': photo.color,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [int.parse(photo.id)],
+      );
+    } catch (e) {
+      //print('Lỗi updatePhoto: $e');
+    }
   }
 
-  // Cập nhật trạng thái của ảnh dựa trên ID
+  // Cập nhật trạng thái của ảnh dựa trên đường dẫn
   Future<void> updateStatus(String imagePath, PhotoStatus status) async {
     Database db = await _database;
-    await db.update(
-      'photos',
-      {'status': status.name, 'updated_at': DateTime.now().toIso8601String()},
-      where: 'image_path = ?',
-      whereArgs: [imagePath],
-    );
+    try {
+      await db.update(
+        'photos',
+        {'status': status.name, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'image_path = ?',
+        whereArgs: [imagePath],
+      );
+    } catch (e) {
+      //print('Lỗi updateStatus: $e');
+    }
   }
 
   // Cập nhật trạng thái theo ID
   Future<void> updatePhotoStatus(int photoId, PhotoStatus status) async {
     Database db = await _database;
-    await db.update(
-      'photos',
-      {'status': status.name, 'updated_at': DateTime.now().toIso8601String()},
-      where: 'id = ?',
-      whereArgs: [photoId],
-    );
+    try {
+      await db.update(
+        'photos',
+        {'status': status.name, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [photoId],
+      );
+    } catch (e) {
+      //print('Lỗi updatePhotoStatus: $e');
+    }
   }
 
   // PHƯƠNG THỨC GÁN CHO SẢN PHẨM
@@ -263,16 +310,20 @@ class PhotoDao {
         PhotoStatus.ready, // Trạng thái mới sau khi gán (mặc định là ready)
   }) async {
     Database db = await _database;
-    await db.update(
-      'photos',
-      {
-        'product_id': productId,
-        'status': newStatus.name,
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      where: 'image_path = ?',
-      whereArgs: [imagePath],
-    );
+    try {
+      await db.update(
+        'photos',
+        {
+          'product_id': productId,
+          'status': newStatus.name,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'image_path = ?',
+        whereArgs: [imagePath],
+      );
+    } catch (e) {
+      //print('Lỗi assignToProduct: $e');
+    }
   }
 
   /// Gán ảnh cho sản phẩm dựa trên ID
@@ -283,67 +334,160 @@ class PhotoDao {
         PhotoStatus.ready, // newStatus trạng thái mới sau khi gán
   }) async {
     Database db = await _database;
-    await db.update(
-      'photos',
-      {
-        'product_id': productId,
-        'status': newStatus.name,
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      where: 'id = ?',
-      whereArgs: [photoId],
-    );
+    try {
+      await db.update(
+        'photos',
+        {
+          'product_id': productId,
+          'status': newStatus.name,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [photoId],
+      );
+    } catch (e) {
+      //print('Lỗi assignToProductById: $e');
+    }
   }
 
   // PHƯƠNG THỨC XÓA
   // Xóa một ảnh khỏi database dựa trên ID
   Future<void> deletePhoto(int id) async {
     Database db = await _database;
-    await db.delete('photos', where: 'id = ?', whereArgs: [id]);
-    //print('Đã xóa ảnh ID: $id');
+    try {
+      await db.delete('photos', where: 'id = ?', whereArgs: [id]);
+      //print('Đã xóa ảnh ID: $id');
+    } catch (e) {
+      //print('Lỗi deletePhoto: $e');
+    }
   }
 
   // Xóa một ảnh khỏi database dựa trên đường dẫn file
   Future<void> deletePhotoByPath(String imagePath) async {
     Database db = await _database;
-    await db.delete('photos', where: 'image_path = ?', whereArgs: [imagePath]);
-    //print('Đã xóa ảnh: $imagePath');
+    try {
+      await db.delete(
+        'photos',
+        where: 'image_path = ?',
+        whereArgs: [imagePath],
+      );
+      //print('Đã xóa ảnh: $imagePath');
+    } catch (e) {
+      //print('Lỗi deletePhotoByPath: $e');
+    }
   }
 
   // PHƯƠNG THỨC THỐNG KÊ
   // Đếm số ảnh trong database, trả về số lượng ảnh
   Future<int> countPhotos() async {
     Database db = await _database;
-    return Sqflite.firstIntValue(
-          await db.rawQuery('SELECT COUNT(*) FROM photos'),
-        ) ??
-        0; // Trả về 0 nếu kết quả null
+    try {
+      return Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM photos'),
+          ) ??
+          0; // Trả về 0 nếu kết quả null
+    } catch (e) {
+      //print('Lỗi countPhotos: $e');
+      return 0;
+    }
   }
 
   // Đếm số ảnh theo trạng thái cụ thể
   // Trả về số lượng ảnh với trạng thái đó
   Future<int> countPhotosByStatus(PhotoStatus status) async {
     Database db = await _database;
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM photos WHERE status = ?',
-      [status.name],
-    );
-    return Sqflite.firstIntValue(result) ?? 0;
+    try {
+      final result = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM photos WHERE status = ?',
+        [status.name],
+      );
+      return Sqflite.firstIntValue(result) ?? 0;
+    } catch (e) {
+      //print('Lỗi countPhotosByStatus: $e');
+      return 0;
+    }
   }
 
   // Lấy metadata của ảnh (không bao gồm đường dẫn file)
   // Trả về Map chứa các trường metadata hoặc null nếu không tìm thấy
   Future<Map<String, dynamic>?> getPhotoMetadata(int photoId) async {
     Database db = await _database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'photos',
-      where: 'id = ?',
-      whereArgs: [photoId],
-      columns: ['title', 'description', 'price', 'category', 'note', 'status'],
-    );
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'photos',
+        where: 'id = ?',
+        whereArgs: [photoId],
+        columns: [
+          'title',
+          'description',
+          'price',
+          'category',
+          'note',
+          'status',
+          'productType',
+          'color',
+        ],
+      );
 
-    if (maps.isEmpty) return null;
-    return maps.first;
+      if (maps.isEmpty) return null;
+      return maps.first;
+    } catch (e) {
+      //print('Lỗi getPhotoMetadata: $e');
+      return null;
+    }
+  }
+
+  // PHƯƠNG THỨC BỔ SUNG
+  // Kiểm tra ảnh đã tồn tại trong database chưa
+  Future<bool> isPhotoExists(String imagePath) async {
+    Database db = await _database;
+    try {
+      final List<Map<String, dynamic>> result = await db.query(
+        'photos',
+        where: 'image_path = ?',
+        whereArgs: [imagePath],
+        limit: 1,
+      );
+      return result.isNotEmpty;
+    } catch (e) {
+      //print('Lỗi isPhotoExists: $e');
+      return false;
+    }
+  }
+
+  // Xóa nhiều ảnh cùng lúc
+  Future<void> deleteMultiplePhotos(List<int> photoIds) async {
+    Database db = await _database;
+    try {
+      await db.delete(
+        'photos',
+        where: 'id IN (${List.filled(photoIds.length, '?').join(',')})',
+        whereArgs: photoIds,
+      );
+      //print('Đã xóa ${photoIds.length} ảnh');
+    } catch (e) {
+      //print('Lỗi deleteMultiplePhotos: $e');
+    }
+  }
+
+  // Lấy ảnh theo phân trang
+  Future<List<PhotoTask>> getPhotosPaginated({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    Database db = await _database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'photos',
+        orderBy: 'created_at DESC',
+        limit: limit,
+        offset: offset,
+      );
+      return maps.map(_mapToPhotoTask).toList();
+    } catch (e) {
+      //print('Lỗi getPhotosPaginated: $e');
+      return [];
+    }
   }
 
   // HELPER METHOD
@@ -365,6 +509,8 @@ class PhotoDao {
       price: (map['price'] as num?)?.toDouble(), // Chuyển từ num sang double
       category: map['category'] as String?,
       note: map['note'] as String?,
+      productType: map['productType'] as String?, // Thêm productType
+      color: map['color'] as String?, // Thêm color
     );
   }
 }

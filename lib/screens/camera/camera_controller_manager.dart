@@ -2,6 +2,7 @@ import 'package:camera/camera.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:module_s1/models/photo_model.dart';
 
 // Quản lý toàn bộ các thao tác liên quan đến camera
 // Gồm: Khởi tạo + Chụp + Lưu + bật tắt Flash + Quản lý vòng đời(Dispose, resume...) + Callback thông báo trạng thái UI
@@ -13,12 +14,16 @@ class CameraControllerManager {
   final Function(bool)
   onInitializingChanged; // Callback khi bắt đầu/kết thúc khởi tạo
   final Function() onCameraReady; // Callback khi camera đã sẵn sàng
+  // Thêm callback cho batch mode
+  final Function(PhotoTask)?
+  onPhotoCaptured; // Callback khi chụp ảnh thành công
 
   CameraControllerManager({
     required this.cameras,
     required this.onError,
     required this.onInitializingChanged,
     required this.onCameraReady,
+    this.onPhotoCaptured, // Tham số mới cho callback chụp ảnh thành công
   });
   // Kiểm tra xem camera đã được khởi tạo thành công chưa
   bool get isInitialized => _controller?.value.isInitialized ?? false;
@@ -71,7 +76,7 @@ class CameraControllerManager {
 
   // Chụp ảnh và lưu file vào thư mục `captured_images` trong bộ nhớ ứng dụng
   // Trả về đường dẫn file đã lưu, hoặc null nếu thất bại
-  Future<String?> capture() async {
+  Future<String?> capture({String? customFileName}) async {
     if (_controller == null || !_controller!.value.isInitialized) {
       return null;
     }
@@ -87,6 +92,17 @@ class CameraControllerManager {
       final XFile photo = await _controller!.takePicture();
       final savedFile = await File(photo.path).copy(imagePath);
       await File(photo.path).delete();
+
+      // Tạo PhotoTask và gọi callback nếu có
+      final photoTask = PhotoTask(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        filePath: savedFile.path,
+        status: PhotoStatus.captured, // Mặc định là captured
+        //createdAt: DateTime.now(),
+      );
+
+      onPhotoCaptured?.call(photoTask);
+
       return savedFile.path;
     } catch (e) {
       return null;

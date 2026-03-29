@@ -60,6 +60,8 @@ class PhotoTask {
   final double? price; // Giá sản phẩm (nếu liên kết với sản phẩm)
   final String? category; // Danh mục sản phẩm
   final String? note; // Ghi chú thêm
+  final String? productType;
+  final String? color;
 
   // Constructor yêu cầu cung cấp đầy đủ thông tin khi khởi tạo một tác vụ.
   PhotoTask({
@@ -72,6 +74,8 @@ class PhotoTask {
     this.price,
     this.category,
     this.note,
+    this.productType,
+    this.color,
   });
 
   /// Factory constructor để tạo PhotoTask từ Map (dùng khi query từ database)
@@ -89,6 +93,8 @@ class PhotoTask {
       price: (map['price'] as num?)?.toDouble(),
       category: map['category'] as String?,
       note: map['note'] as String?,
+      productType: map['productType'] as String?,
+      color: map['color'] as String?,
     );
   }
 
@@ -104,6 +110,8 @@ class PhotoTask {
       'price': price,
       'category': category,
       'note': note,
+      'productType': productType,
+      'color': color,
     };
   }
 
@@ -118,6 +126,8 @@ class PhotoTask {
     double? price,
     String? category,
     String? note,
+    String? productType,
+    String? color,
   }) {
     return PhotoTask(
       id: id ?? this.id,
@@ -129,6 +139,49 @@ class PhotoTask {
       price: price ?? this.price,
       category: category ?? this.category,
       note: note ?? this.note,
+      productType: productType ?? this.productType,
+      color: color ?? this.color,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'PhotoTask(id: $id, filePath: $filePath, status: $status, '
+        'productId: $productId, title: $title, productType: $productType, '
+        'color: $color, price: $price, category: $category)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PhotoTask &&
+        other.id == id &&
+        other.filePath == filePath &&
+        other.status == status &&
+        other.productId == productId &&
+        other.title == title &&
+        other.description == description &&
+        other.price == price &&
+        other.category == category &&
+        other.note == note &&
+        other.productType == productType &&
+        other.color == color;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      id,
+      filePath,
+      status,
+      productId,
+      title,
+      description,
+      price,
+      category,
+      note,
+      productType,
+      color,
     );
   }
 }

@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS products (
     category TEXT NOT NULL,
     price REAL,
     note TEXT,
+    productType TEXT,           -- Thêm trường Loại sản phẩm
+    color TEXT,                 -- Thêm trường Màu sắc
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -28,6 +30,8 @@ CREATE TABLE IF NOT EXISTS photos (
     price REAL,                 -- Giá sản phẩm trong ảnh
     category TEXT,              -- Danh mục của ảnh
     note TEXT,                  -- Ghi chú cho ảnh
+    productType TEXT,           -- Thêm trường Loại sản phẩm
+    color TEXT,                 -- Thêm trường Màu sắc
     
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

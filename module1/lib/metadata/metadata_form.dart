@@ -70,7 +70,8 @@ class _MetadataFormState extends State<MetadataForm> {
     });
 
     try {
-      final photo = await _photoDao.getPhotoById(widget.photoId.toString());
+      //final photo = await _photoDao.getPhotoById(widget.photoId.toString());
+      final photo = await _photoDao.getPhotoById(widget.photoId!);
       if (photo != null && mounted) {
         setState(() {
           _nameController.text = photo.title ?? '';
