@@ -493,41 +493,69 @@ class MetadataFormState extends State<MetadataForm> {
     );
   }
 
+  //ListEdit_Icon.svg
   // Ô nhập Loại sản phẩm
   Widget _buildProductTypeField() {
-    return TextFormField(
-      controller: _productTypeController,
-      decoration: InputDecoration(
-        labelText: 'Loại sản phẩm',
-        labelStyle: const TextStyle(fontWeight: FontWeight.normal),
-        border: const OutlineInputBorder(),
-        //hintText: 'Ví dụ: Điện thoại, Laptop, Phụ kiện...',
-        prefixIcon: const Icon(Icons.category, size: 20),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
+    return Align(
+      alignment: Alignment.centerRight,
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8, // 70% màn hình
+        child: TextFormField(
+          controller: _productTypeController,
+          decoration: InputDecoration(
+            labelText: 'Loại sản phẩm',
+            labelStyle: const TextStyle(fontWeight: FontWeight.normal),
+            border: const OutlineInputBorder(),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Image.asset(
+                'assets/images/ListEdit_Icon.svg',
+                width: 20,
+                height: 20,
+                fit: BoxFit.contain,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+          enabled: !_useExistingProduct || _isEditMode,
         ),
       ),
-      enabled: !_useExistingProduct || _isEditMode,
     );
   }
 
-  // Ô nhập Màu sắc
+  // Ô nhập Màu sắc (có icon ảnh)
   Widget _buildColorField() {
-    return TextFormField(
-      controller: _colorController,
-      decoration: InputDecoration(
-        labelText: 'Màu sắc',
-        labelStyle: const TextStyle(fontWeight: FontWeight.normal),
-        border: const OutlineInputBorder(),
-        //hintText: 'Ví dụ: Đen, Trắng, Xanh, Đỏ...',
-        prefixIcon: const Icon(Icons.color_lens, size: 20),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
+    return Align(
+      alignment: Alignment.centerRight, // Căn về bên phải
+      child: SizedBox(
+        width:
+            MediaQuery.of(context).size.width * 0.8, // 70% chiều rộng màn hình
+        child: TextFormField(
+          controller: _colorController,
+          decoration: InputDecoration(
+            labelText: 'Màu sắc',
+            labelStyle: const TextStyle(fontWeight: FontWeight.normal),
+            border: const OutlineInputBorder(),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Image.asset(
+                'assets/images/Color_Icon_001.svg',
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+          enabled: !_useExistingProduct || _isEditMode,
         ),
       ),
-      enabled: !_useExistingProduct || _isEditMode,
     );
   }
 

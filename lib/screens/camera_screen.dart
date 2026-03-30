@@ -38,6 +38,7 @@ class _CameraScreenState extends State<CameraScreen>
   CameraControllerManager? _cameraManager;
   bool _isCameraInitializing = false; // Cờ đang khởi tạo camera
   String? _cameraError; // Lỗi camera nếu có
+  bool _flashOn = false;
   // TRẠNG THÁI ỨNG DỤNG
   // Chế độ chụp hàng loạt (batch mode) hay chụp đơn
   bool _isBatchMode = false;
@@ -357,9 +358,14 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   // Bật/tắt đèn flash
+  //void _toggleFlash() {
+  //  _cameraManager?.toggleFlash();
+  //  if (mounted) setState(() {}); // ← ĐÃ CÓ setState RỒI!
+  //}
   void _toggleFlash() {
     _cameraManager?.toggleFlash();
-    if (mounted) setState(() {});
+    _flashOn = !_flashOn;
+    setState(() {});
   }
 
   // Hiển thị thông báo ngắn (SnackBar)
@@ -505,7 +511,8 @@ class _CameraScreenState extends State<CameraScreen>
               isBatchMode: _isBatchMode,
               queueLength: _queue.length,
               onToggleFlash: _toggleFlash,
-              isFlashOn: _cameraManager?.isFlashOn ?? false,
+              //isFlashOn: _cameraManager?.isFlashOn ?? false,
+              isFlashOn: _flashOn,
             ),
           ),
           // Hàng đợi thumbnail (chỉ hiển thị khi ở chế độ batch và có ảnh)

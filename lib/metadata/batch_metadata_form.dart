@@ -424,7 +424,7 @@ class _BatchMetadataFormState extends State<BatchMetadataForm> {
   // Dropdown danh mục
   Widget _buildCategoryDropdown() {
     return DropdownButtonFormField<String>(
-      value: _selectedCategory,
+      initialValue: _selectedCategory,
       decoration: const InputDecoration(
         labelText: 'Danh mục',
         border: OutlineInputBorder(),

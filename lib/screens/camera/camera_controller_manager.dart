@@ -25,6 +25,10 @@ class CameraControllerManager {
     required this.onCameraReady,
     this.onPhotoCaptured, // Tham số mới cho callback chụp ảnh thành công
   });
+  bool get isFlashOn {
+    return _controller?.value.flashMode == FlashMode.torch;
+  }
+
   // Kiểm tra xem camera đã được khởi tạo thành công chưa
   bool get isInitialized => _controller?.value.isInitialized ?? false;
   CameraController? get controller => _controller;
@@ -112,10 +116,16 @@ class CameraControllerManager {
   // Bật/tắt đèn flash (torch mode)
   void toggleFlash() {
     if (_controller == null || !_controller!.value.isInitialized) return;
-    final isFlashOn = _controller!.value.flashMode == FlashMode.torch;
-    _controller?.setFlashMode(isFlashOn ? FlashMode.off : FlashMode.torch);
-  }
 
-  // Kiểm tra đèn flash hiện tại có đang bật không
-  bool get isFlashOn => _controller?.value.flashMode == FlashMode.torch;
+    try {
+      // Nếu đang bật thì tắt, đang tắt thì bật
+      if (_controller!.value.flashMode == FlashMode.torch) {
+        _controller?.setFlashMode(FlashMode.off);
+      } else {
+        _controller?.setFlashMode(FlashMode.torch);
+      }
+    } catch (e) {
+      _controller?.setFlashMode(FlashMode.off);
+    }
+  }
 }

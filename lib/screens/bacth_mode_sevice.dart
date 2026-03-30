@@ -1,6 +1,6 @@
 // batch_mode_service.dart
-/*
 
+/*
 import 'package:flutter/material.dart';
 import 'package:module_s1/models/photo_model.dart';
 import 'package:module_s1/models/product_model.dart';
@@ -146,4 +146,5 @@ class BatchStatistics {
     );
   }
 }
+
 */
