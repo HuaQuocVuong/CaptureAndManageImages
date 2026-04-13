@@ -14,14 +14,20 @@ import 'package:module_s1/metadata/utils/price_formatter.dart';
 import 'package:module_s1/metadata/widgets/suggestion_chip.dart';
 import 'metadata_form.dart';
 
+// ==================== STATE CHO MÀN HÌNH NHẬP METADATA ====================
+// Quản lý form nhập thông tin sản phẩm cho ảnh vừa chụp hoặc đang chỉnh sửa
 class MetadataFormState extends State<MetadataForm> {
-  // Khóa form để xác thực(validate)
+  // ==================== CÁC BIẾN ====================
+
+  // Khóa form để validate
   final _formKey = GlobalKey<FormState>();
 
   // Controllers cho các trường nhập liệu
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _nameController =
+      TextEditingController(); // Tên sản phẩm
+  final TextEditingController _priceController = TextEditingController(); // Giá
+  final TextEditingController _noteController =
+      TextEditingController(); // Ghi chú
   final TextEditingController _productTypeController =
       TextEditingController(); // Loại sản phẩm
   final TextEditingController _colorController =
@@ -29,26 +35,36 @@ class MetadataFormState extends State<MetadataForm> {
 
   String? _selectedCategory; // Danh mục được chọn
 
-  // DAOs
+  // DAOs để tương tác database
   final ProductDao _productDao = ProductDao();
   final PhotoDao _photoDao = PhotoDao();
 
   // Trạng thái UI
-  bool _isLoading = false; // Đang xử lý lưu
-  bool _isEditMode = false; // Chế độ chỉnh sửa (có photoId)
-  Product? _existingProduct; // Sản phẩm hiện tại nếu đã có
-  List<Product> _recentProducts = []; // Sản phẩm gần đây để gợi ý
-  bool _useExistingProduct = false; // Đang sử dụng sản phẩm có sẵn
+  bool _isLoading = false; // Đang lưu dữ liệu
+  bool _isEditMode = false; // Chế độ chỉnh sửa (đã có photoId)
+  Product?
+  _existingProduct; // Sản phẩm hiện tại (nếu đang dùng sản phẩm có sẵn)
+  List<Product> _recentProducts = []; // Danh sách sản phẩm gần đây để gợi ý
+  bool _useExistingProduct = false; // Có đang sử dụng sản phẩm có sẵn không
   bool _isInitialLoading = false; // Đang tải dữ liệu ban đầu
+
+  // === THỜI GIAN CHỤP ẢNH (THÊM MỚI) ===
+  DateTime? _capturedAt; // Lưu thời điểm chụp ảnh thực tế
+
+  // ==================== VÒNG ĐỜI ====================
 
   @override
   void initState() {
     super.initState();
+    // Nhận thời gian chụp từ widget (nếu được truyền vào)
+    _capturedAt = widget.capturedAt;
+    // Tải danh sách sản phẩm gần đây để gợi ý
     _loadRecentProducts();
+    // Nếu là chế độ chỉnh sửa (có photoId) thì load dữ liệu ảnh hiện có
     _loadExistingData();
   }
 
-  // Load thông tin ảnh hiện có (nếu ở chế độ chỉnh sửa)
+  // Load thông tin ảnh hiện có (chế độ chỉnh sửa)
   Future<void> _loadExistingData() async {
     if (widget.photoId == null) return;
 
@@ -58,14 +74,13 @@ class MetadataFormState extends State<MetadataForm> {
     });
 
     try {
-      //final photo = await _photoDao.getPhotoById(widget.photoId.toString());
       final photo = await _photoDao.getPhotoById(widget.photoId!);
       if (photo != null && mounted) {
         setState(() {
+          // Điền dữ liệu từ database vào các controller
           _nameController.text = photo.title ?? '';
           _selectedCategory = photo.category;
           _noteController.text = photo.note ?? '';
-
           _productTypeController.text = photo.productType ?? '';
           _colorController.text = photo.color ?? '';
           if (photo.price != null) {
@@ -73,8 +88,11 @@ class MetadataFormState extends State<MetadataForm> {
               photo.price!,
             );
           }
+          // === CẬP NHẬT LẠI THỜI GIAN CHỤP TỪ DATABASE ===
+          _capturedAt = photo.capturedAt;
         });
 
+        // Nếu ảnh đã được gán sản phẩm, load thông tin sản phẩm đó
         if (photo.productId != null) {
           await _loadProductFromId(photo.productId!);
         }
@@ -94,7 +112,7 @@ class MetadataFormState extends State<MetadataForm> {
     }
   }
 
-  // Lấy thông tin sản phẩm từ ID (khi ảnh đã được gán sản phẩm)
+  // Lấy thông tin sản phẩm theo ID (khi ảnh đã được gán sản phẩm)
   Future<void> _loadProductFromId(int productId) async {
     try {
       final product = await _productDao.getById(productId);
@@ -107,7 +125,7 @@ class MetadataFormState extends State<MetadataForm> {
         });
       }
     } catch (e) {
-      //debugPrint('Lỗi load sản phẩm: $e');
+      // Bỏ qua lỗi
     }
   }
 
@@ -121,11 +139,11 @@ class MetadataFormState extends State<MetadataForm> {
         });
       }
     } catch (e) {
-      //debugPrint('Lỗi load sản phẩm: $e');
+      // Bỏ qua
     }
   }
 
-  // Điền thông tin sản phẩm đã chọn vào form
+  // Điền thông tin sản phẩm đã chọn vào form (khi chọn từ danh sách gợi ý)
   Future<void> _loadProductDetails(Product product) async {
     setState(() {
       _existingProduct = product;
@@ -153,7 +171,7 @@ class MetadataFormState extends State<MetadataForm> {
     });
   }
 
-  // Kiểm tra giá trị nhập vào ô giá
+  // Validate giá nhập vào
   String? _validatePrice(String? value) {
     if (value == null || value.isEmpty) return null;
     final numberString = value.replaceAll('.', '');
@@ -164,7 +182,7 @@ class MetadataFormState extends State<MetadataForm> {
     return null;
   }
 
-  // Lưu metadata: tạo/cập nhật sản phẩm và ghi vào bảng photos
+  // Lưu metadata: tạo/cập nhật sản phẩm và gán cho ảnh
   Future<void> _saveMetadata() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -210,6 +228,7 @@ class MetadataFormState extends State<MetadataForm> {
         );
         productId = await _productDao.insert(product);
       }
+
       // Lưu hoặc cập nhật thông tin ảnh
       if (widget.photoId != null) {
         await _photoDao.updatePhotoMetadata(
@@ -270,7 +289,38 @@ class MetadataFormState extends State<MetadataForm> {
     }
   }
 
-  // CÁC PHƯƠNG THỨC XÂY DỰNG UI
+  // ==================== HÀM HIỂN THỊ THỜI GIAN CHỤP ====================
+
+  // Định dạng DateTime thành chuỗi "dd/MM/yyyy HH:mm:ss"
+  String _formatCapturedTime(DateTime time) {
+    return '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}/${time.year} '
+        '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}';
+  }
+
+  // Widget hiển thị thời gian chụp (màu xám, nhỏ, có icon đồng hồ)
+  Widget _buildCapturedTime() {
+    if (_capturedAt == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: Row(
+        children: [
+          Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+          const SizedBox(width: 8),
+          Text(
+            'Chụp lúc: ${_formatCapturedTime(_capturedAt!)}',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== XÂY DỰNG GIAO DIỆN ====================
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -350,7 +400,10 @@ class MetadataFormState extends State<MetadataForm> {
                             const SizedBox(height: 5),
                             if (!_useExistingProduct || _isEditMode)
                               _buildNoteSuggestions(),
-                            const SizedBox(height: 30),
+                            // === HIỂN THỊ THỜI GIAN CHỤP ===
+                            const SizedBox(height: 16),
+                            _buildCapturedTime(),
+                            const SizedBox(height: 16),
                             _buildActionButtons(),
                             if (!_isEditMode) _buildRetakeButton(),
                           ],
@@ -364,6 +417,8 @@ class MetadataFormState extends State<MetadataForm> {
       ),
     );
   }
+
+  // ==================== CÁC THÀNH PHẦN UI ====================
 
   // Hiển thị ảnh xem trước
   Widget _buildImagePreview() {
@@ -417,10 +472,11 @@ class MetadataFormState extends State<MetadataForm> {
                   label: Text(product.name),
                   selected: _existingProduct?.id == product.id,
                   onSelected: (selected) {
-                    if (selected)
+                    if (selected) {
                       _loadProductDetails(product);
-                    else
+                    } else {
                       _clearForm();
+                    }
                   },
                 ),
               );
@@ -454,8 +510,9 @@ class MetadataFormState extends State<MetadataForm> {
       ),
       enabled: !_useExistingProduct || _isEditMode,
       validator: (value) {
-        if (!_useExistingProduct && (value == null || value.isEmpty))
+        if (!_useExistingProduct && (value == null || value.isEmpty)) {
           return 'Vui lòng nhập tên sản phẩm';
+        }
         return null;
       },
     );
@@ -486,20 +543,20 @@ class MetadataFormState extends State<MetadataForm> {
           ? null
           : (val) => setState(() => _selectedCategory = val),
       validator: (value) {
-        if (!_useExistingProduct && value == null)
+        if (!_useExistingProduct && value == null) {
           return 'Vui lòng chọn danh mục';
+        }
         return null;
       },
     );
   }
 
-  //ListEdit_Icon.svg
   // Ô nhập Loại sản phẩm
   Widget _buildProductTypeField() {
     return Align(
       alignment: Alignment.centerRight,
       child: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.8, // 70% màn hình
+        width: MediaQuery.of(context).size.width * 0.8,
         child: TextFormField(
           controller: _productTypeController,
           decoration: InputDecoration(
@@ -526,13 +583,12 @@ class MetadataFormState extends State<MetadataForm> {
     );
   }
 
-  // Ô nhập Màu sắc (có icon ảnh)
+  // Ô nhập Màu sắc
   Widget _buildColorField() {
     return Align(
-      alignment: Alignment.centerRight, // Căn về bên phải
+      alignment: Alignment.centerRight,
       child: SizedBox(
-        width:
-            MediaQuery.of(context).size.width * 0.8, // 70% chiều rộng màn hình
+        width: MediaQuery.of(context).size.width * 0.8,
         child: TextFormField(
           controller: _colorController,
           decoration: InputDecoration(
@@ -559,7 +615,7 @@ class MetadataFormState extends State<MetadataForm> {
     );
   }
 
-  // Ô nhập giá với bộ lọc và format
+  // Ô nhập giá
   Widget _buildPriceField() {
     return TextFormField(
       controller: _priceController,
@@ -725,6 +781,8 @@ class MetadataFormState extends State<MetadataForm> {
       ),
     );
   }
+
+  // ==================== GIẢI PHÓNG BỘ NHỚ ====================
 
   @override
   void dispose() {

@@ -6,8 +6,14 @@ import 'package:module_s1/metadata/metadata_form_state.dart';
 class MetadataForm extends StatefulWidget {
   final String imagePath; // Đường dẫn đến file ảnh
   final int? photoId; // ID của ảnh (nếu có) để chỉnh sửa
+  final DateTime? capturedAt;
 
-  const MetadataForm({super.key, required this.imagePath, this.photoId});
+  const MetadataForm({
+    super.key,
+    required this.imagePath,
+    this.photoId,
+    this.capturedAt,
+  });
 
   @override
   State<MetadataForm> createState() => MetadataFormState();

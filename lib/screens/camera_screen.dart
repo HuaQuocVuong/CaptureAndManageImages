@@ -217,35 +217,32 @@ class _CameraScreenState extends State<CameraScreen>
 
   // Xử lý sự kiện chụp ảnh
   Future<void> _handleCapture() async {
-    // Kiểm tra camera đã sẵn sàng chưa
     if (_cameraManager?.isInitialized != true) {
       _showSnackBar('Camera chưa sẵn sàng', isError: true);
       return;
     }
     try {
-      // Phát âm thanh
       await _playShutterSound();
-      // Chụp ảnh và lấy đường dẫn file
       final imagePath = await _cameraManager!.capture();
-      if (imagePath == null) {
-        //_showSnackBar('Chụp ảnh thất bại', isError: true);
-        return;
-      }
-      // Lưu thông tin ảnh vào database, nhận ID
-      final id = await _photoDao.insert(imagePath);
-      // Tạo đối tượng PhotoTask (dùng trong batch mode)
+      if (imagePath == null) return;
+
+      // Ghi nhận thời điểm chụp ngay lập tức
+      final capturedAt = DateTime.now();
+
+      // Lưu vào database, truyền capturedAt
+      final id = await _photoDao.insert(imagePath, capturedAt);
+
+      // Tạo PhotoTask với capturedAt bắt buộc
       final newTask = PhotoTask(
         id: id.toString(),
         filePath: imagePath,
         status: PhotoStatus.captured,
+        capturedAt: capturedAt, // ← thêm dòng này
+        // createdAt và updatedAt có thể để null (database sẽ tự gán)
       );
-      // Xử lý theo chế độ
+
       if (_isBatchMode) {
-        // Chế độ hàng loạt: thêm vào hàng đợi và xử lý ngầm
-        if (mounted) {
-          setState(() => _queue.insert(0, newTask));
-        }
-        // Xử lý ảnh (có thể là nhận diện, trích xuất metadata...)
+        if (mounted) setState(() => _queue.insert(0, newTask));
         final processor = PhotoProcessor(
           onUpdate: (updatedTask) {
             if (mounted && !_disposed) {
@@ -258,7 +255,6 @@ class _CameraScreenState extends State<CameraScreen>
         );
         processor.process(newTask).then((_) => _loadRecentPhotos());
       } else {
-        // Chế độ đơn: chuyển ngay sang màn hình nhập metadata
         _navigateToMetadata(imagePath, id);
       }
     } catch (e) {
@@ -295,7 +291,10 @@ class _CameraScreenState extends State<CameraScreen>
     if (!mounted || _disposed) return;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const PhotoGalleryScreen()),
+      //MaterialPageRoute(builder: (context) => const PhotoGalleryScreen()),
+      MaterialPageRoute(
+        builder: (context) => PhotoGalleryScreen(cameras: widget.cameras),
+      ),
     ).then((_) {
       if (!_disposed && mounted) _loadRecentPhotos();
     });

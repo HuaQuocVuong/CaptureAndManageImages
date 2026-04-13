@@ -385,10 +385,11 @@ class _BatchMetadataFormState extends State<BatchMetadataForm> {
                   label: Text(product.name),
                   selected: _selectedProduct?.id == product.id,
                   onSelected: (selected) {
-                    if (selected)
+                    if (selected) {
                       _loadProductDetails(product);
-                    else
+                    } else {
                       _clearForm();
+                    }
                   },
                 ),
               );

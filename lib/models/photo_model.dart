@@ -63,6 +63,11 @@ class PhotoTask {
   final String? productType;
   final String? color;
 
+  // Thêm các trường thời gian
+  final DateTime? createdAt; // Thời điểm ghi vào database
+  final DateTime? updatedAt; // Thời điểm cập nhật lần cuối
+  final DateTime capturedAt; // Thời điểm chụp ảnh thực tế (bắt buộc)
+
   // Constructor yêu cầu cung cấp đầy đủ thông tin khi khởi tạo một tác vụ.
   PhotoTask({
     required this.id,
@@ -76,10 +81,24 @@ class PhotoTask {
     this.note,
     this.productType,
     this.color,
+    this.createdAt,
+    this.updatedAt,
+    required this.capturedAt,
   });
 
   /// Factory constructor để tạo PhotoTask từ Map (dùng khi query từ database)
   factory PhotoTask.fromMap(Map<String, dynamic> map) {
+    // Xử lý captured_at: nếu null (dữ liệu cũ) thì dùng created_at làm fallback
+    DateTime capturedAt;
+    if (map['captured_at'] != null) {
+      capturedAt = DateTime.parse(map['captured_at']);
+    } else {
+      // Fallback: dùng created_at hoặc thời điểm hiện tại nếu cũng null
+      capturedAt = map['created_at'] != null
+          ? DateTime.parse(map['created_at'])
+          : DateTime.now();
+    }
+
     return PhotoTask(
       id: map['id'].toString(),
       filePath: map['image_path'] ?? '',
@@ -95,6 +114,13 @@ class PhotoTask {
       note: map['note'] as String?,
       productType: map['productType'] as String?,
       color: map['color'] as String?,
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'])
+          : null,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'])
+          : null,
+      capturedAt: capturedAt,
     );
   }
 
@@ -112,6 +138,9 @@ class PhotoTask {
       'note': note,
       'productType': productType,
       'color': color,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+      'captured_at': capturedAt.toIso8601String(),
     };
   }
 
@@ -128,6 +157,9 @@ class PhotoTask {
     String? note,
     String? productType,
     String? color,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? capturedAt,
   }) {
     return PhotoTask(
       id: id ?? this.id,
@@ -141,6 +173,9 @@ class PhotoTask {
       note: note ?? this.note,
       productType: productType ?? this.productType,
       color: color ?? this.color,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      capturedAt: capturedAt ?? this.capturedAt,
     );
   }
 
@@ -148,7 +183,8 @@ class PhotoTask {
   String toString() {
     return 'PhotoTask(id: $id, filePath: $filePath, status: $status, '
         'productId: $productId, title: $title, productType: $productType, '
-        'color: $color, price: $price, category: $category)';
+        'color: $color, price: $price, category: $category, '
+        'capturedAt: $capturedAt, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -165,7 +201,10 @@ class PhotoTask {
         other.category == category &&
         other.note == note &&
         other.productType == productType &&
-        other.color == color;
+        other.color == color &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt &&
+        other.capturedAt == capturedAt;
   }
 
   @override
@@ -182,6 +221,9 @@ class PhotoTask {
       note,
       productType,
       color,
+      createdAt,
+      updatedAt,
+      capturedAt,
     );
   }
 }

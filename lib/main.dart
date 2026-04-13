@@ -1,40 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'database/database_helper.dart';
-import 'screens/camera_screen.dart';
+//import 'screens/camera_screen.dart';
+import 'screens/photo_gallery_screen.dart';
 
-// Biến toàn cục lưu danh sách camera ----------------
 List<CameraDescription> cameras = [];
 
 Future<void> main() async {
-  // Đảm bảo các ràng buộc của Flutter đã được khởi tạo trước khi gọi code native
   WidgetsFlutterBinding.ensureInitialized();
 
   // Khởi tạo Database
   try {
     final dbHelper = DatabaseHelper();
-    // Gọi getter database để kích hoạt _initDatabase -> _onCreate
     await dbHelper.database;
-    //print('Database initialized and ready.');
   } catch (e) {
-    //print('Database initialization failed: $e');
-    // Bạn có thể thông báo cho người dùng hoặc ghi log lỗi tại đây
+    // Xử lý lỗi database
   }
 
-  //Khởi tạo Camera
+  // Khởi tạo Camera
   try {
     cameras = await availableCameras();
-    //print(' Cameras found: ${cameras.length}');
   } on CameraException {
-    //print('Camera Error: ${e.code}, ${e.description}');
+    // Xử lý lỗi camera
   }
 
-  // 4. Chạy ứng dụng
-  runApp(const PhotographyApp());
+  // Chạy ứng dụng, truyền cameras vào App
+  runApp(PhotographyApp(cameras: cameras));
 }
 
 class PhotographyApp extends StatelessWidget {
-  const PhotographyApp({super.key});
+  final List<CameraDescription> cameras;
+  const PhotographyApp({super.key, required this.cameras});
 
   @override
   Widget build(BuildContext context) {
@@ -42,18 +38,15 @@ class PhotographyApp extends StatelessWidget {
       title: 'Quản lý Hình ảnh Sản phẩm',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        useMaterial3:
-            true, // Khuyến khích dùng Material 3 cho giao diện hiện đại
+        useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,
           brightness: Brightness.dark,
         ),
-        // Dark mode giúp tiết kiệm pin và tập trung vào hình ảnh
         brightness: Brightness.dark,
       ),
-      // Truyền danh sách camera vào màn hình chính
-      // Nếu cameras trống, CameraScreen nên có logic xử lý thông báo "Không tìm thấy camera"
-      home: CameraScreen(cameras: cameras),
+      // Màn hình chính là PhotoGalleryScreen
+      home: PhotoGalleryScreen(cameras: cameras),
     );
   }
 }

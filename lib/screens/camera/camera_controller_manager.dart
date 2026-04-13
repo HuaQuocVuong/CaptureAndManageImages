@@ -55,9 +55,9 @@ class CameraControllerManager {
       }
     } on CameraException catch (e) {
       String errorMsg = 'Không thể khởi tạo camera';
-      if (e.code == 'CameraAccessDenied')
+      if (e.code == 'CameraAccessDenied') {
         errorMsg = 'Không có quyền truy cập camera';
-      else if (e.code == 'CameraDisabled')
+      } else if (e.code == 'CameraDisabled')
         errorMsg = 'Camera đang bị vô hiệu hóa';
       else if (e.code == 'CameraNotFound')
         errorMsg = 'Không tìm thấy camera';
@@ -90,19 +90,20 @@ class CameraControllerManager {
       if (!await imageDir.exists()) {
         await imageDir.create(recursive: true);
       }
-      final fileName = 'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName =
+          customFileName ?? 'IMG_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final imagePath = path.join(imageDir.path, fileName);
 
       final XFile photo = await _controller!.takePicture();
       final savedFile = await File(photo.path).copy(imagePath);
       await File(photo.path).delete();
 
-      // Tạo PhotoTask và gọi callback nếu có
+      final now = DateTime.now();
       final photoTask = PhotoTask(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: now.millisecondsSinceEpoch.toString(),
         filePath: savedFile.path,
-        status: PhotoStatus.captured, // Mặc định là captured
-        //createdAt: DateTime.now(),
+        status: PhotoStatus.captured,
+        capturedAt: now, // ← ĐÃ THÊM
       );
 
       onPhotoCaptured?.call(photoTask);

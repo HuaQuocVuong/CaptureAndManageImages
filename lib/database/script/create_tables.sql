@@ -33,8 +33,10 @@ CREATE TABLE IF NOT EXISTS photos (
     productType TEXT,           -- Thêm trường Loại sản phẩm
     color TEXT,                 -- Thêm trường Màu sắc
     
+    
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    captured_at DATETIME,
     
     FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
 );
