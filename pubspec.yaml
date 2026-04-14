@@ -27,13 +27,15 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/AvaterSoftware_001.png"
+  image_path: "assets/images/avt_software003.png"
   adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/avt_software003.png"
 
 flutter:
   uses-material-design: true
 
   assets:
+    - assets/images/avt_software003.png
     - lib/database/script/create_tables.sql
     - lib/database/script/create_indexes.sql
     - lib/database/script/create_triggers.sql
