@@ -4,12 +4,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/services.dart';
 import 'package:module_s1/database/photo_dao.dart';
 import 'package:module_s1/models/photo_model.dart';
 import 'package:module_s1/metadata/metadata_form.dart';
 import 'package:module_s1/screens/camera_screen.dart';
 import 'dart:io';
 import 'package:share_plus/share_plus.dart';
+import 'package:intl/intl.dart';
 
 // ---------- Stateful widget cho màn hình gallery ----------
 class PhotoGalleryScreen extends StatefulWidget {
@@ -34,6 +36,10 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
   String _searchQuery = '';
   bool _showSuggestions = false;
   List<String> _suggestions = [];
+
+  // Biến cho bộ lọc ngày tháng
+  DateTimeRange? _selectedDateRange;
+  bool _isFilteringByDate = false;
 
   // ------------------------------------------------------------------
   // VÒNG ĐỜI (Lifecycle)
@@ -65,38 +71,34 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
   }
 
   // ------------------------------------------------------------------
-  // XỬ LÝ TÌM KIẾM
+  // XỬ LÝ TÌM KIẾM VÀ LỌC
   // ------------------------------------------------------------------
   void _onSearchChanged() {
     setState(() {
       _searchQuery = _searchController.text.toLowerCase().trim();
-      _filterPhotos();
-      _updateSuggestions();
+      _applyFilters();
     });
   }
 
-  // Lọc ảnh dựa trên từ khóa tìm kiếm
-  void _filterPhotos() {
-    if (_searchQuery.isEmpty) {
-      _filteredPhotos = List.from(_photos);
-    } else {
-      _filteredPhotos = _photos.where((photo) {
-        // Tìm trong tên sản phẩm
+  // Áp dụng tất cả bộ lọc (tìm kiếm + ngày tháng)
+  void _applyFilters() {
+    List<PhotoTask> result = List.from(_photos);
+
+    // Lọc theo từ khóa tìm kiếm
+    if (_searchQuery.isNotEmpty) {
+      result = result.where((photo) {
         if (photo.title != null &&
             photo.title!.toLowerCase().contains(_searchQuery)) {
           return true;
         }
-        // Tìm trong loại sản phẩm
         if (photo.productType != null &&
             photo.productType!.toLowerCase().contains(_searchQuery)) {
           return true;
         }
-        // Tìm trong màu sắc
         if (photo.color != null &&
             photo.color!.toLowerCase().contains(_searchQuery)) {
           return true;
         }
-        // Tìm trong ghi chú
         if (photo.note != null &&
             photo.note!.toLowerCase().contains(_searchQuery)) {
           return true;
@@ -104,6 +106,25 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
         return false;
       }).toList();
     }
+
+    // Lọc theo khoảng ngày tháng
+    if (_isFilteringByDate && _selectedDateRange != null) {
+      result = result.where((photo) {
+        if (photo.createdAt == null) return false;
+        final photoDate = photo.createdAt!;
+        return photoDate.isAfter(
+              _selectedDateRange!.start.subtract(const Duration(days: 1)),
+            ) &&
+            photoDate.isBefore(
+              _selectedDateRange!.end.add(const Duration(days: 1)),
+            );
+      }).toList();
+    }
+
+    setState(() {
+      _filteredPhotos = result;
+      _updateSuggestions();
+    });
   }
 
   // Cập nhật danh sách gợi ý
@@ -116,15 +137,14 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
 
     final Set<String> suggestionsSet = {};
 
-    // Thu thập tất cả tên sản phẩm có chứa từ khóa
-    for (var photo in _photos) {
+    for (var photo in _filteredPhotos) {
       if (photo.title != null &&
           photo.title!.toLowerCase().contains(_searchQuery)) {
         suggestionsSet.add(photo.title!);
       }
     }
 
-    _suggestions = suggestionsSet.take(5).toList(); // Giới hạn 5 gợi ý
+    _suggestions = suggestionsSet.take(5).toList();
     _showSuggestions = _suggestions.isNotEmpty;
   }
 
@@ -133,37 +153,9 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
     setState(() {
       _searchController.text = suggestion;
       _searchQuery = suggestion.toLowerCase();
-      _filterPhotos();
+      _applyFilters();
       _showSuggestions = false;
     });
-
-    // Cuộn đến sản phẩm đầu tiên khớp
-    _scrollToFirstMatch();
-  }
-
-  // Cuộn đến sản phẩm đầu tiên phù hợp
-  void _scrollToFirstMatch() {
-    if (_filteredPhotos.isNotEmpty) {
-      // Tìm vị trí của sản phẩm đầu tiên
-      final firstMatch = _filteredPhotos.first;
-
-      // Tìm category của sản phẩm đó
-      final category =
-          (firstMatch.category == null || firstMatch.category!.isEmpty)
-          ? 'Chưa phân loại'
-          : firstMatch.category!;
-
-      //Hiển thị thông báo
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Đã tìm thấy "${firstMatch.title}" trong danh mục "$category"',
-          ),
-          duration: const Duration(seconds: 2),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
   }
 
   // Xóa tìm kiếm
@@ -171,9 +163,232 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
     setState(() {
       _searchController.clear();
       _searchQuery = '';
-      _filterPhotos();
+      _applyFilters();
       _showSuggestions = false;
       _searchFocusNode.unfocus();
+    });
+  }
+
+  // Mở hộp thoại chọn khoảng ngày (hiển thị menu lựa chọn)
+  Future<void> _selectDateRange() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.calendar_today),
+                title: const Text('Chọn bằng lịch'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _selectDateRangeWithCalendar();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.keyboard),
+                title: const Text('Nhập thủ công (DD/MM/YYYY)'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _selectDateRangeWithManualInput();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Hàm chọn bằng lịch
+  Future<void> _selectDateRangeWithCalendar() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      initialDateRange: _selectedDateRange,
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDateRange = picked;
+        _isFilteringByDate = true;
+        _applyFilters();
+      });
+    }
+  }
+
+  // Hàm nhập thủ công có tự động thêm dấu /
+  Future<void> _selectDateRangeWithManualInput() async {
+    TextEditingController startController = TextEditingController();
+    TextEditingController endController = TextEditingController();
+
+    // Khởi tạo giá trị hiện tại nếu có
+    if (_selectedDateRange != null) {
+      startController.text = _formatDate(_selectedDateRange!.start);
+      endController.text = _formatDate(_selectedDateRange!.end);
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Nhập khoảng thời gian'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: startController,
+                decoration: const InputDecoration(
+                  labelText: 'Ngày bắt đầu',
+                  hintText: 'DD/MM/YYYY',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  // Chỉ cho nhập số và giới hạn độ dài
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(8),
+                ],
+                onChanged: (value) {
+                  // Tự động format khi nhập
+                  String formatted = _formatDateInput(value);
+                  if (formatted != startController.text) {
+                    startController.value = TextEditingValue(
+                      text: formatted,
+                      selection: TextSelection.collapsed(
+                        offset: formatted.length,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: endController,
+                decoration: const InputDecoration(
+                  labelText: 'Ngày kết thúc',
+                  hintText: 'DD/MM/YYYY',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(8),
+                ],
+                onChanged: (value) {
+                  // Tự động format khi nhập
+                  String formatted = _formatDateInput(value);
+                  if (formatted != endController.text) {
+                    endController.value = TextEditingValue(
+                      text: formatted,
+                      selection: TextSelection.collapsed(
+                        offset: formatted.length,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Parse từ string có dấu / (DD/MM/YYYY)
+                DateTime? startDate = _parseDateFromString(
+                  startController.text,
+                );
+                DateTime? endDate = _parseDateFromString(endController.text);
+
+                if (startDate != null && endDate != null) {
+                  if (startDate.isBefore(endDate) ||
+                      startDate.isAtSameMomentAs(endDate)) {
+                    setState(() {
+                      _selectedDateRange = DateTimeRange(
+                        start: startDate,
+                        end: endDate,
+                      );
+                      _isFilteringByDate = true;
+                      _applyFilters();
+                    });
+                    Navigator.pop(context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu',
+                        ),
+                      ),
+                    );
+                  }
+                } else {
+                  //ScaffoldMessenger.of(context).showSnackBar(
+                  //const SnackBar(
+                  //  content: Text(
+                  //    'Vui lòng nhập đúng định dạng DD/MM/YYYY (ví dụ: 01/01/2026)',
+                  //  ),
+                  //),
+                  //);
+                }
+              },
+              child: const Text('Lọc'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Hàm tự động format khi nhập (thêm dấu /)
+  String _formatDateInput(String input) {
+    // Xóa tất cả dấu / hiện có
+    String cleaned = input.replaceAll('/', '');
+
+    if (cleaned.length >= 3) {
+      cleaned = cleaned.substring(0, 2) + '/' + cleaned.substring(2);
+    }
+    if (cleaned.length >= 6) {
+      cleaned = cleaned.substring(0, 5) + '/' + cleaned.substring(5);
+    }
+
+    return cleaned;
+  }
+
+  // Hàm parse từ string có dấu / (DD/MM/YYYY) - không giới hạn năm
+  DateTime? _parseDateFromString(String dateString) {
+    try {
+      final parts = dateString.split('/');
+      if (parts.length == 3) {
+        final day = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        final year = int.parse(parts[2]);
+
+        // Kiểm tra ngày tháng hợp lệ (không giới hạn năm)
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year > 0) {
+          return DateTime(year, month, day);
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Hàm định dạng ngày DD/MM/YYYY
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  // Xóa bộ lọc ngày tháng
+  void _clearDateFilter() {
+    setState(() {
+      _selectedDateRange = null;
+      _isFilteringByDate = false;
+      _applyFilters();
     });
   }
 
@@ -181,7 +396,9 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
   // NHÓM ẢNH THEO DANH MỤC (Category)
   // ------------------------------------------------------------------
   Map<String, List<PhotoTask>> get _groupedPhotos {
-    final photosToGroup = _searchQuery.isEmpty ? _photos : _filteredPhotos;
+    final photosToGroup = _searchQuery.isEmpty && !_isFilteringByDate
+        ? _photos
+        : _filteredPhotos;
     final Map<String, List<PhotoTask>> groups = {};
 
     for (var photo in photosToGroup) {
@@ -233,7 +450,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
   }
 
   // ------------------------------------------------------------------
-  // WIDGET: THANH TÌM KIẾM
+  // WIDGET: THANH TÌM KIẾM (đã thêm nút bộ lọc ngày tháng)
   // ------------------------------------------------------------------
   Widget _buildSearchBar() {
     return Container(
@@ -250,37 +467,108 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: _searchController,
-            focusNode: _searchFocusNode,
-            style: const TextStyle(color: Colors.black, fontSize: 16),
-            decoration: InputDecoration(
-              hintText: 'Tìm kiếm sản phẩm...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: _clearSearch,
-                    )
-                  : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide.none,
+          Row(
+            children: [
+              // Ô tìm kiếm - chiếm phần lớn không gian
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  style: const TextStyle(color: Colors.black, fontSize: 16),
+                  decoration: InputDecoration(
+                    hintText: 'Tìm kiếm sản phẩm...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: _clearSearch,
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onTap: () {
+                    setState(() {
+                      if (_searchQuery.isNotEmpty) {
+                        _showSuggestions = _suggestions.isNotEmpty;
+                      }
+                    });
+                  },
+                ),
               ),
-              filled: true,
-              fillColor: Colors.grey[100],
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            onTap: () {
-              setState(() {
-                if (_searchQuery.isNotEmpty) {
-                  _showSuggestions = _suggestions.isNotEmpty;
-                }
-              });
-            },
+              const SizedBox(width: 8),
+              // Nút bộ lọc ngày tháng
+              Stack(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.filter_alt,
+                      color: _isFilteringByDate ? Colors.blue : Colors.white,
+                    ),
+                    onPressed: _selectDateRange,
+                    tooltip: 'Lọc theo ngày',
+                  ),
+                  if (_isFilteringByDate)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              // Nút xóa bộ lọc (chỉ hiển thị khi đang lọc)
+              if (_isFilteringByDate)
+                IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.white),
+                  onPressed: _clearDateFilter,
+                  tooltip: 'Xóa lọc ngày',
+                ),
+            ],
           ),
-
+          // Hiển thị thông tin bộ lọc ngày tháng
+          if (_isFilteringByDate && _selectedDateRange != null)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.blue[100],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.date_range, size: 16, color: Colors.blue),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${_formatDate(_selectedDateRange!.start)} - ${_formatDate(_selectedDateRange!.end)}',
+                    style: const TextStyle(fontSize: 12, color: Colors.blue),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: _clearDateFilter,
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Hiển thị gợi ý tìm kiếm
           if (_showSuggestions && _suggestions.isNotEmpty)
             _buildSuggestionsList(),
@@ -313,7 +601,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
               suggestion,
               style: const TextStyle(
                 fontSize: 15,
-                color: Colors.teal, // Đen tuyền
+                color: Colors.teal,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -325,20 +613,28 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
     );
   }
 
-  // Widget hiển thị kết quả tìm kiếm
+  // Widget hiển thị kết quả tìm kiếm và lọc
   Widget _buildSearchResultInfo() {
-    if (_searchQuery.isEmpty) return const SizedBox.shrink();
+    if (_searchQuery.isEmpty && !_isFilteringByDate) {
+      return const SizedBox.shrink();
+    }
+
+    final List<String> filters = [];
+    if (_searchQuery.isNotEmpty) filters.add('"$_searchQuery"');
+    if (_isFilteringByDate) filters.add('ngày tháng');
+
+    final filterText = filters.join(' và ');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Colors.blue[50],
       child: Row(
         children: [
-          Icon(Icons.search, size: 16, color: Colors.blue[700]),
+          Icon(Icons.filter_list, size: 16, color: Colors.blue[700]),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Tìm thấy ${_filteredPhotos.length} kết quả cho "$_searchQuery"',
+              'Tìm thấy ${_filteredPhotos.length} kết quả cho $filterText',
               style: TextStyle(
                 fontSize: 13,
                 color: Colors.blue[700],
@@ -347,12 +643,15 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
             ),
           ),
           TextButton(
-            onPressed: _clearSearch,
+            onPressed: () {
+              _clearSearch();
+              _clearDateFilter();
+            },
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: Size.zero,
             ),
-            child: const Text('Xóa'),
+            child: const Text('Xóa tất cả'),
           ),
         ],
       ),
@@ -608,31 +907,36 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
   // WIDGET: HIỂN THỊ KHI DANH SÁCH ẢNH RỖNG
   // ------------------------------------------------------------------
   Widget _buildEmptyState() {
-    final message = _searchQuery.isEmpty
-        ? 'Chưa có ảnh nào'
-        : 'Không tìm thấy sản phẩm "$_searchQuery"';
+    final message = _searchQuery.isNotEmpty || _isFilteringByDate
+        ? 'Không tìm thấy kết quả phù hợp'
+        : 'Chưa có ảnh nào';
 
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            _searchQuery.isEmpty ? Icons.photo_library : Icons.search_off,
+            _searchQuery.isNotEmpty || _isFilteringByDate
+                ? Icons.search_off
+                : Icons.photo_library,
             size: 64,
             color: Colors.grey[400],
           ),
           const SizedBox(height: 16),
           Text(message, style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 8),
-          if (_searchQuery.isEmpty)
+          if (_searchQuery.isEmpty && !_isFilteringByDate)
             ElevatedButton(
               onPressed: _openCamera,
               child: const Text('Chụp ảnh ngay'),
             )
           else
             ElevatedButton(
-              onPressed: _clearSearch,
-              child: const Text('Xóa tìm kiếm'),
+              onPressed: () {
+                _clearSearch();
+                _clearDateFilter();
+              },
+              child: const Text('Xóa bộ lọc'),
             ),
         ],
       ),
@@ -663,7 +967,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
           // Thanh tìm kiếm
           _buildSearchBar(),
 
-          // Thông tin kết quả tìm kiếm
+          // Thông tin kết quả tìm kiếm và lọc
           _buildSearchResultInfo(),
 
           // Nội dung chính (danh sách ảnh hoặc loading/empty)
@@ -671,7 +975,8 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen>
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _photos.isEmpty ||
-                      (_searchQuery.isNotEmpty && _filteredPhotos.isEmpty)
+                      ((_searchQuery.isNotEmpty || _isFilteringByDate) &&
+                          _filteredPhotos.isEmpty)
                 ? _buildEmptyState()
                 : CustomScrollView(
                     slivers: grouped.entries.map((entry) {
